@@ -3,47 +3,48 @@ import assert from 'node:assert';
 import { Game } from '../models/Game.js';
 import { Player } from '../models/Player.js';
 
-test('nextRound advances from scoring into the next bidding round', () => {
+function seat(game, count) {
+  for (let i = 1; i <= count; i++) game.addPlayer(`p${i}`, `P${i}`);
+}
+
+test('startMatch deals every card and opens bidding', () => {
   const game = new Game();
-  game.players = [
-    new Player('p1', 'P1'),
-    new Player('p2', 'P2'),
-    new Player('p3', 'P3'),
-    new Player('p4', 'P4')
-  ];
-  game.phase = 'SCORING';
-  game.round = 1;
+  seat(game, 4);
 
-  game.nextRound();
+  game.startMatch();
 
-  assert.strictEqual(game.round, 2);
   assert.strictEqual(game.phase, 'BIDDING');
-  assert.ok(game.biddingState);
-  assert.strictEqual(game.players.every(player => player.hand.length > 0), true);
+  assert.strictEqual(game.totalTricks, 13);
+  assert.strictEqual(game.players.every(p => p.hand.length === 13), true);
 });
 
-test('nextRound ends the match after final scoring', () => {
+test('a deal hands out every card for 5 and 6 players', () => {
+  const five = new Game();
+  seat(five, 5);
+  five.startMatch();
+  assert.strictEqual(five.totalTricks, 10);
+  assert.strictEqual(five.players.every(p => p.hand.length === 10), true);
+
+  const six = new Game();
+  seat(six, 6);
+  six.startMatch();
+  assert.strictEqual(six.totalTricks, 8);
+  assert.strictEqual(six.players.every(p => p.hand.length === 8), true);
+});
+
+test('startMatch refuses to run twice while a deal is live', () => {
   const game = new Game();
-  game.players = [
-    new Player('p1', 'P1'),
-    new Player('p2', 'P2'),
-    new Player('p3', 'P3'),
-    new Player('p4', 'P4')
-  ];
-  game.players[0].score = 120;
-  game.players[1].score = 80;
-  game.phase = 'SCORING';
-  game.round = game.maxRounds;
+  seat(game, 4);
+  game.startMatch();
 
-  game.nextRound();
+  assert.throws(() => game.startMatch(), /already in progress/);
+});
 
-  assert.strictEqual(game.phase, 'MATCH_END');
-  assert.deepStrictEqual(game.matchWinners, [{
-    id: 'p1',
-    accountUserId: null,
-    name: 'P1',
-    score: 120
-  }]);
+test('startMatch needs at least four players', () => {
+  const game = new Game();
+  seat(game, 3);
+
+  assert.throws(() => game.startMatch(), /at least 4 players/);
 });
 
 test('match winners include ties and snapshot standings', () => {

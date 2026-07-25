@@ -44,7 +44,7 @@ export function notifyPartners(players, bidderId, partnerCardIds) {
     const heldPartnerCards = player.hand.filter(c => partnerCardIds.includes(c.id));
     if (heldPartnerCards.length > 0) {
       notifications.set(player.id, {
-        message: `You are a partner! You hold ${heldPartnerCards.map(c => c.toString()).join(' and ')}.`
+        message: `You are a partner — you hold ${heldPartnerCards.map(c => c.toDisplayString()).join(' and ')}.`
       });
     }
   }
@@ -56,17 +56,23 @@ export function checkReveal(playedCardId, partnerCardIds) {
   return partnerCardIds.includes(playedCardId);
 }
 
+// Trick entries are { playerId, card } so we know who played what; accept a bare
+// Card too so the helper works with either shape.
+function toCard(entry) {
+  return entry?.card ?? entry;
+}
+
 export function getTeamPoints(players, roles, tricks) {
   let teamPoints = 0;
-  
+
   for (const trick of tricks) {
     const winnerRole = roles.get(trick.winnerId);
     if (winnerRole === 'bidder' || winnerRole === 'partner') {
-      for (const card of trick.cards) {
-        teamPoints += card.getPointValue();
+      for (const entry of trick.cards) {
+        teamPoints += toCard(entry).getPointValue();
       }
     }
   }
-  
+
   return teamPoints;
 }

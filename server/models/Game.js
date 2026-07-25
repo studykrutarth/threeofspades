@@ -3,18 +3,18 @@ import { Player } from './Player.js';
 import { initBiddingState, placeBid, isBiddingOver, getBidWinner } from '../engine/bidding.js';
 import { validatePartnerSelection, assignPartners, notifyPartners, checkReveal, getTeamPoints } from '../engine/partners.js';
 import { initTrick, playCard, isTrickComplete, determineTrickWinner } from '../engine/tricks.js';
-import { resolveRound, applyScoreDeltas, getRoundSummary } from '../engine/scoring.js';
+import { resolveRound, applyScoreDeltas, getResultSummary } from '../engine/scoring.js';
 
 export class Game {
+  // A match is a single deal: the whole deck is dealt out and played to the last
+  // trick, which is 13 tricks with 4 players, 10 with 5, and 8 with 6.
   constructor() {
     this.players = []; // Array of Player objects
-    this.maxRounds = 10;
-    this.round = 0;
-    this.phase = 'LOBBY'; // LOBBY, DEALING, BIDDING, TRUMP_SELECTION, PARTNER_SELECTION, TRICKS, SCORING, MATCH_END
+    this.phase = 'LOBBY'; // LOBBY, DEALING, BIDDING, TRUMP_SELECTION, PARTNER_SELECTION, TRICKS, MATCH_END
     this.dealerIndex = 0;
     this.matchWinners = [];
-    
-    // Round state
+
+    // Deal state
     this.biddingState = null;
     this.trump = null;
     this.partnerCardIds = [];
@@ -22,7 +22,7 @@ export class Game {
     this.privateMessages = new Map(); // playerId -> message
     this.tricks = [];
     this.currentTrick = null;
-    this.scoresHistory = [];
+    this.resultSummary = null;
     this.roundCardIds = [];
   }
 
@@ -48,33 +48,26 @@ export class Game {
     }
   }
 
+  // Also used to replay: once a match ends the table can deal a fresh one.
   startMatch() {
-    if (this.phase !== 'LOBBY') throw new Error('Match already started');
+    if (this.phase !== 'LOBBY' && this.phase !== 'MATCH_END') {
+      throw new Error('Match already in progress');
+    }
     if (this.players.length < 4) throw new Error('Need at least 4 players to start');
-    
-    this.round = 0;
-    this.scoresHistory = [];
+
+    for (const player of this.players) player.score = 0;
     this.matchWinners = [];
-    this.startRound();
+    this.resultSummary = null;
+    this.deal();
   }
 
-  startRound() {
-    if (this.round >= this.maxRounds) {
-      this.endMatch();
-      return;
-    }
-
-    if (this.phase !== 'LOBBY' && this.phase !== 'SCORING') {
-      throw new Error('Can only start a round from lobby or scoring');
-    }
-
-    this.round++;
+  deal() {
     this.phase = 'DEALING';
-    
+
     for (const player of this.players) {
       player.resetForRound();
     }
-    
+
     const deck = Deck.create();
     deck.removeForPlayers(this.players.length);
     this.roundCardIds = deck.cards.map(c => c.id);
@@ -98,29 +91,12 @@ export class Game {
     this.currentTrick = null;
   }
 
-  nextRound() {
-    if (this.phase !== 'SCORING') {
-      throw new Error('Can only advance after scoring');
-    }
-
-    if (this.round >= this.maxRounds) {
-      this.endMatch();
-      return;
-    }
-
-    this.startRound();
-  }
-
   endMatch() {
     if (this.phase === 'MATCH_END') return;
-    
+
     this.phase = 'MATCH_END';
     this.matchWinners = this.getMatchWinners();
     this.currentTrick = null;
-    this.trump = null;
-    this.partnerCardIds = [];
-    this.roles.clear();
-    this.privateMessages.clear();
   }
 
   getMatchWinners() {
@@ -139,8 +115,7 @@ export class Game {
 
   getMatchSnapshot() {
     return {
-      round: this.round,
-      maxRounds: this.maxRounds,
+      trump: this.trump,
       winners: this.matchWinners,
       players: this.players.map(p => ({
         id: p.id,
@@ -149,7 +124,7 @@ export class Game {
         score: p.score,
         isBot: p.isBot
       })),
-      scoresHistory: this.scoresHistory
+      result: this.resultSummary
     };
   }
 
@@ -234,9 +209,8 @@ export class Game {
       const trickResult = determineTrickWinner(this.currentTrick, this.trump);
       this.tricks.push(this.currentTrick);
       
-      // Check if all cards are played
+      // The deal is spent once the last card is played, which ends the match.
       if (player.hand.length === 0) {
-        this.phase = 'SCORING';
         this._handleScoring();
       } else {
         // Winner leads next trick
@@ -244,17 +218,18 @@ export class Game {
       }
     }
   }
-  
+
   _handleScoring() {
     const winner = getBidWinner(this.biddingState);
     const pointsCollected = getTeamPoints(this.players, this.roles, this.tricks);
     const deltas = resolveRound(winner.amount, pointsCollected, this.players, this.roles);
     applyScoreDeltas(this.players, deltas);
-    
-    const summary = getRoundSummary(this.round, winner.playerId, winner.amount, pointsCollected, this.roles, deltas);
-    this.scoresHistory.push(summary);
-    
+
+    this.resultSummary = getResultSummary(winner.playerId, winner.amount, pointsCollected, this.roles, deltas);
+
+    // Move the deal on so a replay starts the bidding with a different player.
     this.dealerIndex = (this.dealerIndex + 1) % this.players.length;
+    this.endMatch();
   }
 
   _getNextPlayerId(currentPlayerId) {
@@ -262,10 +237,54 @@ export class Game {
     return this.players[(idx + 1) % this.players.length].id;
   }
 
-  getPublicState() {
+  // Whoever the game is currently waiting on, so clients can show a turn indicator.
+  getCurrentTurnPlayerId() {
+    switch (this.phase) {
+      case 'BIDDING':
+        return this.biddingState?.players[this.biddingState.currentTurnIndex] ?? null;
+      case 'TRUMP_SELECTION':
+      case 'PARTNER_SELECTION':
+        return this.biddingState?.highestBidderId ?? null;
+      case 'TRICKS': {
+        if (!this.currentTrick) return null;
+        if (this.currentTrick.cards.length === 0) return this.currentTrick.leadPlayerId;
+        return this._getNextPlayerId(this.currentTrick.cards[this.currentTrick.cards.length - 1].playerId);
+      }
+      default:
+        return null;
+    }
+  }
+
+  // Point cards captured so far, keyed by the player who won the trick. Public
+  // information — anyone can count what has been taken off the table.
+  _getPointsTakenByPlayer() {
+    const totals = {};
+    for (const player of this.players) totals[player.id] = 0;
+
+    for (const trick of this.tricks) {
+      if (totals[trick.winnerId] === undefined) continue;
+      for (const entry of trick.cards) {
+        totals[trick.winnerId] += entry.card.getPointValue();
+      }
+    }
+
+    return totals;
+  }
+
+  // Sets do not survive JSON serialization, so hand back a plain array.
+  _serializeBiddingState() {
+    if (!this.biddingState) return null;
     return {
-      round: this.round,
-      maxRounds: this.maxRounds,
+      ...this.biddingState,
+      passedPlayers: Array.from(this.biddingState.passedPlayers)
+    };
+  }
+
+  getPublicState() {
+    const pointsTaken = this._getPointsTakenByPlayer();
+    const lastTrick = this.tricks[this.tricks.length - 1] || null;
+
+    return {
       phase: this.phase,
       players: this.players.map(p => ({
         id: p.id,
@@ -273,19 +292,33 @@ export class Game {
         accountUserId: p.accountUserId,
         score: p.score,
         handSize: p.hand.length,
-        isRevealed: p.isRevealed
+        isRevealed: p.isRevealed,
+        isBot: p.isBot,
+        pointsTaken: pointsTaken[p.id] ?? 0
       })),
-      bidding: this.biddingState,
+      bidding: this._serializeBiddingState(),
+      bidWinnerId: this.biddingState?.highestBidderId ?? null,
+      bidAmount: this.biddingState?.highestBid ?? 0,
       trump: this.trump,
       roundCardIds: this.roundCardIds,
+      // The called cards are public; only who holds them stays hidden.
+      partnerCardIds: this.partnerCardIds,
+      currentTurnPlayerId: this.getCurrentTurnPlayerId(),
       currentTrick: this.currentTrick,
       tricks: this.tricks,
-      lastRoundSummary: this.scoresHistory[this.scoresHistory.length - 1] || null,
-      scoresHistory: this.scoresHistory,
+      lastTrick,
+      trickNumber: Math.min(this.tricks.length + (this.phase === 'TRICKS' ? 1 : 0), this.totalTricks),
+      totalTricks: this.totalTricks,
+      resultSummary: this.resultSummary,
       matchWinners: this.matchWinners,
-      canAdvanceRound: this.phase === 'SCORING',
-      isFinalScoring: this.phase === 'SCORING' && this.round >= this.maxRounds
+      canReplay: this.phase === 'MATCH_END' && this.players.length >= 4
     };
+  }
+
+  // Tricks in a deal: 13 with 4 players, 10 with 5, 8 with 6.
+  get totalTricks() {
+    if (this.players.length === 0) return 0;
+    return this.roundCardIds.length / this.players.length;
   }
 
   getPrivateState(playerId) {
@@ -294,7 +327,9 @@ export class Game {
       ...this.getPublicState(),
       playerId,
       hand: player ? player.hand : [],
-      privateMessage: this.privateMessages.get(playerId) || null
+      privateMessage: this.privateMessages.get(playerId) || null,
+      // A player always knows their own allegiance, even while others don't.
+      myRole: this.roles.get(playerId) || null
     };
   }
 }

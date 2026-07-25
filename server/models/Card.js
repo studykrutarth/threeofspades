@@ -35,4 +35,10 @@ export class Card {
   toString() {
     return this.id;
   }
+
+  // Human-facing form, e.g. "K♠" — used in player-visible messages.
+  toDisplayString() {
+    const symbols = { S: '♠', H: '♥', D: '♦', C: '♣' };
+    return `${this.rank}${symbols[this.suit] || this.suit}`;
+  }
 }

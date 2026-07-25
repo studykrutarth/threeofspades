@@ -3,6 +3,7 @@ import { createContext, useContext, useEffect, useState, useCallback } from 'rea
 import { fetchProfile, login, signup } from '../lib/api';
 
 const TOKEN_STORAGE_KEY = 'threeofspades_token';
+const GUEST_STORAGE_KEY = 'threeofspades_guest';
 
 const AuthContext = createContext(null);
 
@@ -16,7 +17,16 @@ export function useAuth() {
 
 export function AuthProvider({ children }) {
   const [token, setToken] = useState(() => localStorage.getItem(TOKEN_STORAGE_KEY));
-  const [profile, setProfile] = useState(null);
+  // Guests have no token, so their identity is restored straight from storage.
+  const [profile, setProfile] = useState(() => {
+    if (localStorage.getItem(TOKEN_STORAGE_KEY)) return null;
+    try {
+      const stored = localStorage.getItem(GUEST_STORAGE_KEY);
+      return stored ? JSON.parse(stored) : null;
+    } catch {
+      return null;
+    }
+  });
   const [loading, setLoading] = useState(true);
 
   const loadProfile = useCallback(async (accessToken) => {
@@ -47,6 +57,8 @@ export function AuthProvider({ children }) {
   const persistToken = (newToken) => {
     setToken(newToken);
     localStorage.setItem(TOKEN_STORAGE_KEY, newToken);
+    // Signing in supersedes any guest identity.
+    localStorage.removeItem(GUEST_STORAGE_KEY);
   };
 
   const signInWithEmail = async (email, password) => {
@@ -63,10 +75,25 @@ export function AuthProvider({ children }) {
     return data;
   };
 
+  const continueAsGuest = (username) => {
+    const guestProfile = {
+      id: null,
+      email: null,
+      username: username.trim(),
+      gamesPlayed: 0,
+      gamesWon: 0,
+      highestScore: 0,
+      isGuest: true
+    };
+    setProfile(guestProfile);
+    localStorage.setItem(GUEST_STORAGE_KEY, JSON.stringify(guestProfile));
+  };
+
   const signOut = async () => {
     setToken(null);
     setProfile(null);
     localStorage.removeItem(TOKEN_STORAGE_KEY);
+    localStorage.removeItem(GUEST_STORAGE_KEY);
   };
 
   const refreshProfile = async () => {
@@ -81,6 +108,7 @@ export function AuthProvider({ children }) {
       loading,
       signInWithEmail,
       signUpWithEmail,
+      continueAsGuest,
       signOut,
       refreshProfile
     }}>

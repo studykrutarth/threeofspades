@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 
@@ -6,13 +6,27 @@ const SUIT_SYMBOLS = ['♠', '♥', '♦', '♣'];
 
 export default function Home() {
   const navigate = useNavigate();
-  const { session, loading } = useAuth();
+  const { session, loading, profile, continueAsGuest } = useAuth();
+  const [showGuestForm, setShowGuestForm] = useState(false);
+  const [guestName, setGuestName] = useState('');
+  const [guestError, setGuestError] = useState('');
 
   useEffect(() => {
-    if (!loading && session) {
+    if (!loading && (session || profile)) {
       navigate('/lobby');
     }
-  }, [session, loading, navigate]);
+  }, [session, profile, loading, navigate]);
+
+  const handleGuestSubmit = (e) => {
+    e.preventDefault();
+    const trimmed = guestName.trim();
+    if (trimmed.length < 3) {
+      setGuestError('Enter a name with at least 3 characters');
+      return;
+    }
+    continueAsGuest(trimmed);
+    navigate('/lobby');
+  };
 
   if (loading) {
     return (
@@ -66,6 +80,38 @@ export default function Home() {
               Create Account
             </button>
           </div>
+
+          <div className="relative flex items-center py-4">
+            <div className="flex-grow h-px" style={{ background: 'rgba(255,255,255,0.08)' }}></div>
+            <span className="flex-shrink-0 mx-4 text-xs font-semibold uppercase tracking-widest opacity-25">or</span>
+            <div className="flex-grow h-px" style={{ background: 'rgba(255,255,255,0.08)' }}></div>
+          </div>
+
+          {showGuestForm ? (
+            <form onSubmit={handleGuestSubmit} className="space-y-3">
+              <input
+                type="text"
+                className="input-field text-lg"
+                placeholder="Enter a display name"
+                value={guestName}
+                onChange={(e) => { setGuestName(e.target.value); setGuestError(''); }}
+                maxLength={20}
+                autoFocus
+              />
+              {guestError && <p className="text-xs text-center" style={{ color: 'var(--color-ruby-400)' }}>{guestError}</p>}
+              <button type="submit" className="btn-primary w-full text-lg py-4">
+                Continue as Guest
+              </button>
+            </form>
+          ) : (
+            <button
+              onClick={() => setShowGuestForm(true)}
+              className="w-full text-sm py-3 font-semibold rounded-lg transition-all opacity-60 hover:opacity-90"
+              style={{ background: 'rgba(255,255,255,0.03)', border: '1px dashed rgba(255,255,255,0.15)' }}
+            >
+              Play as Guest (no account needed)
+            </button>
+          )}
 
           <div className="mt-8 flex items-center justify-center gap-6 text-xs opacity-30">
             <span className="flex items-center gap-1.5">

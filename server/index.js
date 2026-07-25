@@ -97,21 +97,6 @@ io.on('connection', (socket) => {
     }
   });
 
-  socket.on('next_round', async () => {
-    const client = clientMap.get(socket.id);
-    if (!client) return;
-    const room = rooms.get(client.roomId);
-    if (!room) return;
-
-    try {
-      room.game.nextRound();
-      await saveMatchIfEnded(room);
-      broadcastState(client.roomId);
-    } catch (err) {
-      socket.emit('error', err.message);
-    }
-  });
-
   // Actions
   socket.on('place_bid', ({ amount }) => {
     const client = clientMap.get(socket.id);
@@ -149,12 +134,14 @@ io.on('connection', (socket) => {
     }
   });
 
-  socket.on('play_card', ({ cardId }) => {
+  socket.on('play_card', async ({ cardId }) => {
     const client = clientMap.get(socket.id);
     if (!client) return;
     const room = rooms.get(client.roomId);
     try {
       room.game.playCard(client.playerId, cardId);
+      // The last card of the deal ends the match, so persist it here.
+      await saveMatchIfEnded(room);
       broadcastState(client.roomId);
     } catch (err) {
       socket.emit('error', err.message);

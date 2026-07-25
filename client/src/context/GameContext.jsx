@@ -89,10 +89,6 @@ export const GameProvider = ({ children }) => {
     socket.emit('start_match');
   };
 
-  const nextRound = () => {
-    socket.emit('next_round');
-  };
-
   const placeBid = (amount) => {
     socket.emit('place_bid', { amount });
   };
@@ -118,7 +114,6 @@ export const GameProvider = ({ children }) => {
       error,
       joinRoom,
       startMatch,
-      nextRound,
       placeBid,
       selectTrump,
       selectPartners,

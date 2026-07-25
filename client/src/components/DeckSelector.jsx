@@ -38,19 +38,21 @@ export default function DeckSelector({ onSelect, excludeCards = [], allowedCardI
   return (
     <div className="glass-panel p-6 mt-6 animate-float-in">
       {/* Header */}
-      <div className="flex justify-between items-center mb-5 pb-4" style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
-        <div>
-          <h3 className="text-lg font-bold text-white" style={{ fontFamily: 'var(--font-heading)' }}>
+      <div className="flex justify-between items-start gap-4 mb-4 pb-3" style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+        <div className="min-w-0">
+          <h3 className="text-base font-bold text-white" style={{ fontFamily: 'var(--font-heading)' }}>
             Select Partner Cards
           </h3>
-          <p className="text-xs opacity-40 mt-1">Choose 2 cards you do not hold. Their owners become your hidden partners.</p>
+          <p className="text-xs opacity-40 mt-0.5 leading-snug">
+            Choose 2 cards you do not hold. Their owners become your hidden partners.
+          </p>
         </div>
-        <button 
+        <button
           onClick={handleConfirm}
           disabled={selectedIds.length !== maxSelect}
-          className={selectedIds.length === maxSelect ? 'btn-gold' : 'btn-ghost opacity-50 cursor-not-allowed'}
+          className={`shrink-0 whitespace-nowrap px-4 py-2 text-sm ${selectedIds.length === maxSelect ? 'btn-gold' : 'btn-ghost opacity-50 cursor-not-allowed'}`}
         >
-          Confirm ({selectedIds.length}/{maxSelect})
+          Confirm {selectedIds.length}/{maxSelect}
         </button>
       </div>
       

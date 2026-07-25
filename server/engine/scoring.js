@@ -1,8 +1,9 @@
 export function calculateRoundPoints(tricks) {
   let totalPoints = 0;
   for (const trick of tricks) {
-    for (const card of trick.cards) {
-      totalPoints += card.getPointValue();
+    for (const entry of trick.cards) {
+      // Trick entries are { playerId, card }; tolerate a bare Card as well.
+      totalPoints += (entry?.card ?? entry).getPointValue();
     }
   }
   return totalPoints;
@@ -51,9 +52,8 @@ export function applyScoreDeltas(players, deltas) {
   return players;
 }
 
-export function getRoundSummary(round, bidWinnerId, bidAmount, pointsCollected, roles, deltas) {
+export function getResultSummary(bidWinnerId, bidAmount, pointsCollected, roles, deltas) {
   return {
-    round,
     bidWinnerId,
     bidAmount,
     pointsCollected,

@@ -49,7 +49,7 @@ test('Hidden info notification', () => {
   
   assert.ok(!notifications.has('p1'));
   assert.ok(notifications.has('p2'));
-  assert.match(notifications.get('p2').message, /AH/);
+  assert.match(notifications.get('p2').message, /A♥/);
 });
 
 test('Partner reveal check', () => {

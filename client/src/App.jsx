@@ -1,4 +1,4 @@
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, useLocation } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { GameProvider, useGame } from './context/GameContext';
 import Home from './pages/Home';
@@ -10,9 +10,12 @@ import Room from './pages/Room';
 function AppContent() {
   const { error } = useGame();
   const { profile, signOut } = useAuth();
+  const location = useLocation();
+  // The game table manages its own full-bleed layout; everything else is a centered card.
+  const isTableRoute = location.pathname.startsWith('/room/');
 
   return (
-    <div className="min-h-screen flex flex-col relative" style={{ background: 'var(--color-felt-900)' }}>
+    <div className="h-screen flex flex-col relative overflow-hidden" style={{ background: 'var(--color-felt-900)' }}>
       {/* Background decorative orbs */}
       <div className="fixed inset-0 pointer-events-none overflow-hidden z-0">
         <div className="absolute -top-40 -left-40 w-96 h-96 rounded-full opacity-[0.07]"
@@ -63,7 +66,7 @@ function AppContent() {
       </header>
 
       {/* Main content */}
-      <main className="flex-grow flex items-center justify-center p-4 md:p-8 relative z-10">
+      <main className={`flex-grow relative z-10 min-h-0 flex ${isTableRoute ? '' : 'items-center justify-center p-4 md:p-8 overflow-y-auto'}`}>
         <Routes>
           <Route path="/" element={<Home />} />
           <Route path="/login" element={<Login />} />
@@ -73,11 +76,13 @@ function AppContent() {
         </Routes>
       </main>
 
-      {/* Footer */}
-      <footer className="relative z-10 text-center py-4 text-xs opacity-30"
-              style={{ borderTop: '1px solid rgba(255,255,255,0.04)' }}>
-        Three of Spades © 2026
-      </footer>
+      {/* Footer — hidden at the table so the game gets the full height */}
+      {!isTableRoute && (
+        <footer className="relative z-10 text-center py-4 text-xs opacity-30 shrink-0"
+                style={{ borderTop: '1px solid rgba(255,255,255,0.04)' }}>
+          Three of Spades © 2026
+        </footer>
+      )}
     </div>
   );
 }
