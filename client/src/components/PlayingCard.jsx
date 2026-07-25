@@ -12,29 +12,35 @@ export default function PlayingCard({
   size = 'md'
 }) {
   const sizes = {
+    mini: 'w-6 h-9',      // face-down slivers in an opponent's fan
     xs: 'w-11 h-16',
     sm: 'w-16 h-24 text-xs',
     md: 'w-[4.5rem] h-[6.5rem]',
     lg: 'w-24 h-36',
   };
+  const isSmall = size === 'sm' || size === 'xs' || size === 'mini';
 
   // Card back
   if (!card) {
     return (
       <div className={clsx(
-        "rounded-xl shadow-lg flex items-center justify-center cursor-default select-none",
+        "rounded-lg shadow-lg flex items-center justify-center cursor-default select-none overflow-hidden",
         sizes[size],
         className
       )}
       style={{
-        background: 'linear-gradient(145deg, #1e3a5f, #0f1f3a)',
-        border: '1.5px solid rgba(255,255,255,0.1)',
-        boxShadow: '0 4px 12px rgba(0,0,0,0.4)',
+        background: 'linear-gradient(145deg, #24457a, #12294d)',
+        // A light rim separates each card in an overlapping fan.
+        border: '1.5px solid rgba(255,255,255,0.55)',
+        boxShadow: '0 3px 10px rgba(0,0,0,0.5)',
+        ...style,
       }}>
-        <div className="w-[80%] h-[85%] rounded-lg opacity-30"
+        {/* Swap this block for real back art later — it fills the whole face. */}
+        <div className="w-full h-full"
              style={{
-               border: '1px solid rgba(212,168,67,0.3)',
-               background: 'repeating-linear-gradient(-45deg, transparent, transparent 3px, rgba(212,168,67,0.06) 3px, rgba(212,168,67,0.06) 6px)',
+               background:
+                 'repeating-linear-gradient(-45deg, transparent 0 4px, rgba(212,168,67,0.22) 4px 8px),' +
+                 'repeating-linear-gradient(45deg, transparent 0 4px, rgba(212,168,67,0.22) 4px 8px)',
              }} />
       </div>
     );
@@ -85,10 +91,21 @@ export default function PlayingCard({
              style={{ background: 'linear-gradient(90deg, transparent 0%, rgba(212,168,67,0.15) 50%, transparent 100%)', backgroundSize: '200% 100%' }} />
       )}
 
-      {/* Top-left corner */}
-      <div className="absolute top-1.5 left-2 flex flex-col items-center leading-none z-10">
-        <span className="font-extrabold" style={{ fontSize: size === 'sm' || size === 'xs' ? '0.7rem' : '0.85rem' }}>{rankDisplay}</span>
-        <span style={{ fontSize: size === 'sm' || size === 'xs' ? '0.75rem' : '0.9rem' }}>{suitSymbol}</span>
+      {/* Top-left corner. The point badge lives here rather than on the right
+          edge so it survives being overlapped in a fanned hand. */}
+      <div className="absolute top-1.5 left-1.5 flex flex-col items-center leading-none z-10">
+        <span className="font-extrabold" style={{ fontSize: isSmall ? '0.7rem' : '0.85rem' }}>{rankDisplay}</span>
+        <span style={{ fontSize: isSmall ? '0.75rem' : '0.9rem' }}>{suitSymbol}</span>
+        {points > 0 && (
+          <span className="mt-1 font-extrabold rounded px-1 leading-tight"
+                style={{
+                  fontSize: '0.5rem',
+                  background: isThreeOfSpades ? 'var(--color-gold-500)' : 'rgba(30,41,59,0.85)',
+                  color: isThreeOfSpades ? 'var(--color-felt-900)' : '#f1f5f9'
+                }}>
+            {points}
+          </span>
+        )}
       </div>
 
       {/* Center suit — large */}
@@ -106,16 +123,6 @@ export default function PlayingCard({
         </div>
       )}
 
-      {/* Point badge — every scoring card, not just the 3♠ */}
-      {points > 0 && (
-        <div className="absolute top-1 right-1 text-[0.55rem] font-extrabold px-1 py-0.5 rounded z-10"
-             style={{
-               background: isThreeOfSpades ? 'var(--color-gold-500)' : 'rgba(30,41,59,0.85)',
-               color: isThreeOfSpades ? 'var(--color-felt-900)' : '#f1f5f9'
-             }}>
-          {points}
-        </div>
-      )}
     </div>
   );
 }

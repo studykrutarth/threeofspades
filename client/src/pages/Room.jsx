@@ -73,6 +73,7 @@ export default function Room() {
     bidding,
     bidWinnerId,
     bidAmount: highestBid,
+    confirmedTeamPoints = 0,
     partnerCardIds = [],
     privateMessage,
     myRole,
@@ -111,15 +112,23 @@ export default function Room() {
     : players;
 
   // Spread them across the top arc: first to act on the left, last on the right.
+  // Radii stay clear of the felt edges so a seat's card fan is never clipped.
   const seatPosition = (i) => {
     const count = opponents.length;
     const degrees = count === 1 ? 270 : 180 + (i * 180) / (count - 1);
     const angle = degrees * (Math.PI / 180);
     return {
-      x: Math.cos(angle) * 40,
-      y: Math.sin(angle) * 34
+      x: Math.cos(angle) * 38,
+      y: Math.sin(angle) * 22,
+      // Turn each hand to face its own seat — 90° on the left, 180° straight
+      // across, 270° on the right, with 5 and 6 players landing in between.
+      rotation: degrees - 90
     };
   };
+
+  // Every fan is the same shape and simply rotates, so seats stay identical in
+  // size. The exact card count is spelled out underneath each seat.
+  const FANNED_BACKS = 5;
 
   // ─── Header ───
   const renderHeader = () => (
@@ -159,6 +168,17 @@ export default function Room() {
           <span className="text-xs font-bold" style={{ color: 'var(--color-gold-400)' }}>
             {nameOf(bidWinnerId)} · {highestBid}
           </span>
+        </div>
+      )}
+
+      {phase === 'TRICKS' && bidWinnerId && (
+        <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg"
+             style={{ background: 'rgba(16,185,129,0.1)', border: '1px solid rgba(16,185,129,0.25)' }}>
+          <span className="text-[0.6rem] font-semibold uppercase tracking-widest opacity-50">Bid team</span>
+          <span className="text-base font-bold" style={{ color: 'var(--color-emerald-500)' }}>
+            {confirmedTeamPoints}
+          </span>
+          <span className="text-xs opacity-40">/ {highestBid}</span>
         </div>
       )}
 
@@ -260,6 +280,31 @@ export default function Room() {
             </div>
             <p className="text-[0.6rem] opacity-35 mt-2 leading-snug">
               Whoever holds these plays with the bid winner.
+            </p>
+          </div>
+        )}
+
+        {/* How close the bid team is, counting only what the table can see */}
+        {phase === 'TRICKS' && bidWinnerId && (
+          <div className="glass-panel p-3">
+            <div className="flex items-baseline justify-between mb-2">
+              <p className="text-[0.6rem] font-semibold uppercase tracking-widest opacity-40">Bid Progress</p>
+              <p className="text-sm font-bold">
+                <span style={{ color: 'var(--color-emerald-500)' }}>{confirmedTeamPoints}</span>
+                <span className="opacity-40"> / {highestBid}</span>
+              </p>
+            </div>
+            <div className="h-1.5 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.08)' }}>
+              <div className="h-full rounded-full transition-all duration-300"
+                   style={{
+                     width: `${Math.min(100, highestBid ? (confirmedTeamPoints / highestBid) * 100 : 0)}%`,
+                     background: 'linear-gradient(90deg, var(--color-emerald-600), var(--color-emerald-500))'
+                   }} />
+            </div>
+            <p className="text-[0.6rem] opacity-35 mt-2 leading-snug">
+              Counts the bid winner and revealed partners only. A hidden partner&apos;s
+              points stay off this tally until they play a called card. The match
+              ends the moment this reaches {highestBid}.
             </p>
           </div>
         )}
@@ -475,9 +520,13 @@ export default function Room() {
         <div className="glass-panel p-6 w-full max-w-2xl animate-float-in max-h-full overflow-y-auto">
           {resultSummary ? (
             <>
-              <div className="flex items-start justify-between gap-4 mb-5">
+              <div className="flex items-start justify-between gap-4 mb-4">
                 <div>
-                  <p className="text-xs uppercase tracking-widest opacity-40 font-semibold">All cards played</p>
+                  <p className="text-xs uppercase tracking-widest opacity-40 font-semibold">
+                    {resultSummary.endedEarly
+                      ? `Called after ${resultSummary.tricksPlayed} of ${resultSummary.totalTricks} tricks`
+                      : 'All cards played'}
+                  </p>
                   <h3 className="text-2xl font-extrabold text-white mt-1" style={{ fontFamily: 'var(--font-heading)' }}>
                     {resultSummary.isSuccess ? 'Bid Team Made It' : 'Bid Team Fell Short'}
                   </h3>
@@ -493,6 +542,29 @@ export default function Room() {
                   <p className="text-xs uppercase tracking-widest opacity-40 font-semibold">Bid</p>
                   <p className="text-3xl font-extrabold" style={{ color: 'var(--color-gold-400)' }}>{resultSummary.bidAmount}</p>
                 </div>
+              </div>
+
+              {resultSummary.endedEarly && (
+                <p className="text-xs mb-4 px-3 py-2 rounded-lg leading-snug"
+                   style={{ background: 'rgba(16,185,129,0.1)', border: '1px solid rgba(16,185,129,0.25)', color: '#86efac' }}>
+                  The bid winner and revealed partners had already taken {resultSummary.confirmedPoints} points,
+                  so the result was settled with cards still in hand.
+                </p>
+              )}
+
+              {/* Where the bid team's points came from */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-5">
+                {[
+                  { label: 'Bid winner', value: resultSummary.bidderPoints, color: 'var(--color-gold-400)' },
+                  { label: 'Revealed partners', value: resultSummary.revealedPartnerPoints, color: 'var(--color-emerald-500)' },
+                  { label: 'Hidden partners', value: resultSummary.hiddenPartnerPoints, color: '#c084fc' },
+                  { label: 'Opponents', value: resultSummary.opponentPoints, color: 'var(--color-ruby-400)' }
+                ].map(cell => (
+                  <div key={cell.label} className="glass-panel-light p-2 text-center">
+                    <p className="text-[0.55rem] uppercase tracking-wider opacity-40 leading-tight">{cell.label}</p>
+                    <p className="text-lg font-extrabold" style={{ color: cell.color }}>{cell.value}</p>
+                  </div>
+                ))}
               </div>
 
               <div className="overflow-hidden rounded-lg mb-5" style={{ border: '1px solid rgba(255,255,255,0.08)' }}>
@@ -551,11 +623,14 @@ export default function Room() {
 
   // ─── Table ───
   const renderTable = () => (
-    <div className="flex-1 shrink-0 relative min-h-[15rem] m-3 rounded-[2rem]"
+    <div className="flex-1 min-h-0 flex flex-col w-full max-w-[78rem] mx-auto m-3 rounded-[2rem] overflow-hidden"
          style={{ background: 'radial-gradient(ellipse at center, #2d8659 0%, #1a5f3f 75%)', border: '6px solid var(--color-gold-500)' }}>
 
+      {/* Seats + trick live up top; the hand occupies the felt below them */}
+      <div className="relative flex-1 min-h-[13rem]">
+
       {/* Trick sits in the lower half — the top arc belongs to the opponent seats */}
-      <div className="absolute inset-x-0 bottom-0 top-1/3 flex flex-col items-center justify-center gap-2 pointer-events-none px-4 pb-3">
+      <div className="absolute inset-x-0 bottom-0 top-[38%] flex flex-col items-center justify-center gap-2 pointer-events-none px-4 pb-3">
         {currentTrick?.cards?.length > 0 ? (
           <>
             {leadSuit && (
@@ -597,7 +672,7 @@ export default function Room() {
         const hue = (players.findIndex(p => p.id === player.id) * 67) + 340;
         return (
           <div key={player.id}
-               className="absolute w-[5.5rem] text-center"
+               className="absolute text-center"
                style={{
                  left: `calc(50% + ${pos.x}%)`,
                  top: `calc(50% + ${pos.y}%)`,
@@ -608,26 +683,48 @@ export default function Room() {
                    background: 'rgba(0,0,0,0.55)',
                    border: `2px solid ${isActive ? 'var(--color-gold-500)' : 'rgba(255,255,255,0.1)'}`
                  }}>
-              <div className="w-8 h-8 rounded-full mx-auto mb-0.5 flex items-center justify-center text-[0.65rem] font-bold text-white"
-                   style={{ background: `linear-gradient(135deg, hsl(${hue}, 70%, 45%), hsl(${hue + 20}, 60%, 35%))` }}>
-                {player.name?.charAt(0)?.toUpperCase()}
-              </div>
-              <p className="text-[0.6rem] font-semibold truncate leading-tight">{player.name}</p>
-              <div className="flex items-center justify-center gap-1 text-[0.55rem] leading-tight">
-                <span style={{ color: player.score >= 0 ? 'var(--color-emerald-500)' : 'var(--color-ruby-400)' }}>
-                  {player.score >= 0 ? '+' : ''}{player.score}
-                </span>
-                <span className="opacity-40">· {player.handSize} cards</span>
-              </div>
-              {phase === 'TRICKS' && player.pointsTaken > 0 && (
-                <p className="text-[0.55rem] font-bold leading-tight" style={{ color: 'var(--color-gold-400)' }}>
-                  {player.pointsTaken} pts
-                </p>
-              )}
-              <div className="flex items-center justify-center gap-1 leading-tight">
-                {player.id === bidWinnerId && <span className="text-[0.55rem]">👑</span>}
+              {/* Identity on one line so the seat stays short enough to fit the felt */}
+              <div className="flex items-center justify-center gap-1.5 px-0.5">
+                <div className="w-6 h-6 shrink-0 rounded-full flex items-center justify-center text-[0.6rem] font-bold text-white"
+                     style={{ background: `linear-gradient(135deg, hsl(${hue}, 70%, 45%), hsl(${hue + 20}, 60%, 35%))` }}>
+                  {player.name?.charAt(0)?.toUpperCase()}
+                </div>
+                <div className="text-left leading-tight min-w-0">
+                  <p className="text-[0.6rem] font-semibold truncate max-w-[5.5rem]">{player.name}</p>
+                  <p className="text-[0.55rem] leading-tight">
+                    <span style={{ color: player.score >= 0 ? 'var(--color-emerald-500)' : 'var(--color-ruby-400)' }}>
+                      {player.score >= 0 ? '+' : ''}{player.score}
+                    </span>
+                    <span className="opacity-40"> · {player.handSize} cards</span>
+                  </p>
+                </div>
+                {player.id === bidWinnerId && <span className="text-[0.6rem] shrink-0">👑</span>}
                 {player.isRevealed && (
-                  <span className="text-[0.5rem] font-bold" style={{ color: 'var(--color-emerald-500)' }}>★</span>
+                  <span className="text-[0.6rem] font-bold shrink-0" style={{ color: 'var(--color-emerald-500)' }}>★</span>
+                )}
+              </div>
+
+              {/* Their hand, face down — big enough for the back art to read.
+                  Square box so the fan keeps one footprint whatever angle it sits at. */}
+              {player.handSize > 0 && (
+                <div className="relative w-36 h-36 mx-auto" title={`${player.handSize} cards`}>
+                  <div className="absolute top-1/2 left-1/2 flex"
+                       style={{ transform: `translate(-50%, -50%) rotate(${pos.rotation}deg)` }}>
+                    {Array.from({ length: Math.min(player.handSize, FANNED_BACKS) }).map((_, idx) => (
+                      <div key={idx} className="shrink-0"
+                           style={idx === 0 ? undefined : { marginLeft: '-1.5rem' }}>
+                        <PlayingCard size="xs" isPlayable={false} />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              <div className="flex items-center justify-center gap-1.5 leading-tight min-h-[0.85rem]">
+                {phase === 'TRICKS' && player.pointsTaken > 0 && (
+                  <span className="text-[0.55rem] font-bold" style={{ color: 'var(--color-gold-400)' }}>
+                    {player.pointsTaken} pts
+                  </span>
                 )}
                 {phase === 'BIDDING' && passedPlayers.includes(player.id) && (
                   <span className="text-[0.5rem] font-bold opacity-40">PASSED</span>
@@ -637,6 +734,20 @@ export default function Room() {
           </div>
         );
       })}
+
+        {/* Bidding / trump / partner panels float over the seats and trick */}
+        {(phase === 'BIDDING' || phase === 'TRUMP_SELECTION' || phase === 'PARTNER_SELECTION') && (
+          <div className="absolute inset-0 z-20 flex items-center justify-center p-3 overflow-y-auto pointer-events-none">
+            <div className="w-full max-w-xl pointer-events-auto my-auto">
+              {renderBiddingPanel()}
+              {renderTrumpPanel()}
+              {renderPartnerPanel()}
+            </div>
+          </div>
+        )}
+      </div>
+
+      {renderHand()}
     </div>
   );
 
@@ -648,7 +759,8 @@ export default function Room() {
     const handPoints = myHand.reduce((sum, c) => sum + getCardPoints(c), 0);
 
     return (
-      <div className="relative z-20 bg-black/40 backdrop-blur-sm border-t border-white/10 px-4 py-3 shrink-0">
+      <div className="relative z-10 shrink-0 px-4 pt-2 pb-3"
+           style={{ background: 'rgba(0,0,0,0.42)', borderTop: '1px solid rgba(255,255,255,0.12)' }}>
         <div className="max-w-6xl mx-auto">
           <div className="flex items-center justify-between gap-3 mb-2 text-[0.6rem] uppercase tracking-widest flex-wrap">
             <div className="flex items-center gap-2 flex-wrap">
@@ -680,22 +792,29 @@ export default function Room() {
             )}
           </div>
 
-          <div className="flex items-end justify-center gap-1.5 overflow-x-auto pb-2">
+          <div className="flex items-end justify-center overflow-x-auto pb-2 pt-3 px-6">
             {myHand.length === 0 ? (
               <p className="text-sm opacity-40 py-6">Waiting for the next deal…</p>
             ) : (
-              myHand.map((card) => {
+              myHand.map((card, i) => {
                 const isLegal = legalCardIds.has(card.id);
                 const playable = phase === 'TRICKS' && isMyTurn && isLegal;
                 return (
-                  <PlayingCard
+                  <div
                     key={card.id}
-                    card={card}
-                    size="md"
-                    isPlayable={playable}
-                    dimmed={phase === 'TRICKS' && !isLegal}
-                    onClick={playable ? () => playCard(card.id) : undefined}
-                  />
+                    className="hand-card shrink-0 relative"
+                    // Overlap so only each card's index corner shows, the way a
+                    // real hand fans. Later cards sit on top of earlier ones.
+                    style={{ marginLeft: i === 0 ? 0 : '-2.5rem', zIndex: i }}
+                  >
+                    <PlayingCard
+                      card={card}
+                      size="md"
+                      isPlayable={playable}
+                      dimmed={phase === 'TRICKS' && !isLegal}
+                      onClick={playable ? () => playCard(card.id) : undefined}
+                    />
+                  </div>
                 );
               })
             )}
@@ -757,24 +876,13 @@ export default function Room() {
 
       {phase === 'LOBBY' ? renderLobby() : (
         <div className="flex-1 flex flex-col lg:flex-row min-h-0 overflow-hidden">
-          <div className="flex-1 relative flex flex-col min-h-0 min-w-0">
+          <div className="flex-1 flex flex-col min-h-0 min-w-0">
             {renderTable()}
-            {/* The action panel floats over the felt so it is never pushed below the fold */}
-            {(phase === 'BIDDING' || phase === 'TRUMP_SELECTION' || phase === 'PARTNER_SELECTION') && (
-              <div className="absolute inset-0 z-10 flex items-center justify-center p-3 overflow-y-auto pointer-events-none">
-                <div className="w-full max-w-xl pointer-events-auto my-auto">
-                  {renderBiddingPanel()}
-                  {renderTrumpPanel()}
-                  {renderPartnerPanel()}
-                </div>
-              </div>
-            )}
           </div>
           {renderSidebar()}
         </div>
       )}
 
-      {renderHand()}
       {renderMatchEndPanel()}
     </div>
   );

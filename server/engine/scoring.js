@@ -52,12 +52,24 @@ export function applyScoreDeltas(players, deltas) {
   return players;
 }
 
-export function getResultSummary(bidWinnerId, bidAmount, pointsCollected, roles, deltas) {
+export function getResultSummary(bidWinnerId, bidAmount, breakdown, roles, deltas, meta = {}) {
+  const { endedEarly = false, tricksPlayed = 0, totalTricks = 0 } = meta;
+
   return {
     bidWinnerId,
     bidAmount,
-    pointsCollected,
-    isSuccess: pointsCollected >= bidAmount,
+    pointsCollected: breakdown.teamPoints,
+    // Split out so the recap can show what was public during play versus what
+    // was sitting with a partner nobody had identified yet.
+    bidderPoints: breakdown.bidderPoints,
+    revealedPartnerPoints: breakdown.revealedPartnerPoints,
+    hiddenPartnerPoints: breakdown.hiddenPartnerPoints,
+    opponentPoints: breakdown.opponentPoints,
+    confirmedPoints: breakdown.confirmedPoints,
+    isSuccess: breakdown.teamPoints >= bidAmount,
+    endedEarly,
+    tricksPlayed,
+    totalTricks,
     roles: Array.from(roles.entries()).map(([id, role]) => ({ id, role })),
     deltas: Array.from(deltas.entries()).map(([id, delta]) => ({ id, delta }))
   };

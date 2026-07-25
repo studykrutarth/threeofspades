@@ -1,7 +1,7 @@
 import { Deck } from './Deck.js';
 import { Player } from './Player.js';
 import { initBiddingState, placeBid, isBiddingOver, getBidWinner } from '../engine/bidding.js';
-import { validatePartnerSelection, assignPartners, notifyPartners, checkReveal, getTeamPoints } from '../engine/partners.js';
+import { validatePartnerSelection, assignPartners, notifyPartners, checkReveal, getTeamPointBreakdown } from '../engine/partners.js';
 import { initTrick, playCard, isTrickComplete, determineTrickWinner } from '../engine/tricks.js';
 import { resolveRound, applyScoreDeltas, getResultSummary } from '../engine/scoring.js';
 
@@ -212,6 +212,9 @@ export class Game {
       // The deal is spent once the last card is played, which ends the match.
       if (player.hand.length === 0) {
         this._handleScoring();
+      } else if (this.isBidSettled()) {
+        // Everyone can already see the bid is made, so there is nothing left to play for.
+        this._handleScoring({ endedEarly: true });
       } else {
         // Winner leads next trick
         this.currentTrick = initTrick(trickResult.winnerId);
@@ -219,13 +222,32 @@ export class Game {
     }
   }
 
-  _handleScoring() {
+  getPointBreakdown() {
+    return getTeamPointBreakdown(this.players, this.roles, this.tricks);
+  }
+
+  // True once the publicly visible haul — the bid winner plus any revealed
+  // partners — covers the bid. Points held by a still-hidden partner do not
+  // count here, because the table cannot yet know they belong to the bid team.
+  isBidSettled() {
+    if (this.phase !== 'TRICKS' || !this.biddingState) return false;
+    return this.getPointBreakdown().confirmedPoints >= this.biddingState.highestBid;
+  }
+
+  _handleScoring({ endedEarly = false } = {}) {
     const winner = getBidWinner(this.biddingState);
-    const pointsCollected = getTeamPoints(this.players, this.roles, this.tricks);
-    const deltas = resolveRound(winner.amount, pointsCollected, this.players, this.roles);
+    const breakdown = this.getPointBreakdown();
+    const deltas = resolveRound(winner.amount, breakdown.teamPoints, this.players, this.roles);
     applyScoreDeltas(this.players, deltas);
 
-    this.resultSummary = getResultSummary(winner.playerId, winner.amount, pointsCollected, this.roles, deltas);
+    this.resultSummary = getResultSummary(
+      winner.playerId,
+      winner.amount,
+      breakdown,
+      this.roles,
+      deltas,
+      { endedEarly, tricksPlayed: this.tricks.length, totalTricks: this.totalTricks }
+    );
 
     // Move the deal on so a replay starts the bidding with a different player.
     this.dealerIndex = (this.dealerIndex + 1) % this.players.length;
@@ -299,6 +321,10 @@ export class Game {
       bidding: this._serializeBiddingState(),
       bidWinnerId: this.biddingState?.highestBidderId ?? null,
       bidAmount: this.biddingState?.highestBid ?? 0,
+      // Safe to broadcast: anyone can add up the bid winner's and revealed
+      // partners' tricks themselves. Hidden partner points stay out of the
+      // public state until the match is over.
+      confirmedTeamPoints: this.roles.size > 0 ? this.getPointBreakdown().confirmedPoints : 0,
       trump: this.trump,
       roundCardIds: this.roundCardIds,
       // The called cards are public; only who holds them stays hidden.

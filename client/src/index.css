@@ -238,6 +238,13 @@ body {
   border-color: rgba(255,255,255,0.2);
 }
 
+/* ─── Overlapping Hand ─── */
+/* Cards are stacked with negative margins and an inline z-index, so hovering
+   has to override that inline value to pull a card to the front. */
+.hand-card:hover {
+  z-index: 60 !important;
+}
+
 /* ─── Input Styling ─── */
 .input-field {
   width: 100%;

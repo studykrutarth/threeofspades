@@ -62,17 +62,49 @@ function toCard(entry) {
   return entry?.card ?? entry;
 }
 
-export function getTeamPoints(players, roles, tricks) {
-  let teamPoints = 0;
+function trickValue(trick) {
+  let points = 0;
+  for (const entry of trick.cards) points += toCard(entry).getPointValue();
+  return points;
+}
+
+// Splits the bid team's haul by what the table can actually see. A partner's
+// tricks only become public knowledge once they play a called card and are
+// revealed, so points sitting with a still-hidden partner are tracked apart.
+export function getTeamPointBreakdown(players, roles, tricks) {
+  const isRevealed = new Map(players.map(p => [p.id, p.isRevealed]));
+
+  let bidderPoints = 0;
+  let revealedPartnerPoints = 0;
+  let hiddenPartnerPoints = 0;
+  let opponentPoints = 0;
 
   for (const trick of tricks) {
-    const winnerRole = roles.get(trick.winnerId);
-    if (winnerRole === 'bidder' || winnerRole === 'partner') {
-      for (const entry of trick.cards) {
-        teamPoints += toCard(entry).getPointValue();
-      }
+    const role = roles.get(trick.winnerId);
+    const points = trickValue(trick);
+
+    if (role === 'bidder') {
+      bidderPoints += points;
+    } else if (role === 'partner') {
+      if (isRevealed.get(trick.winnerId)) revealedPartnerPoints += points;
+      else hiddenPartnerPoints += points;
+    } else {
+      opponentPoints += points;
     }
   }
 
-  return teamPoints;
+  return {
+    bidderPoints,
+    revealedPartnerPoints,
+    hiddenPartnerPoints,
+    opponentPoints,
+    // What every player can work out from the table alone.
+    confirmedPoints: bidderPoints + revealedPartnerPoints,
+    // The real total the bid is settled against.
+    teamPoints: bidderPoints + revealedPartnerPoints + hiddenPartnerPoints
+  };
+}
+
+export function getTeamPoints(players, roles, tricks) {
+  return getTeamPointBreakdown(players, roles, tricks).teamPoints;
 }
