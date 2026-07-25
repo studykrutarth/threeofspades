@@ -1,0 +1,26 @@
+{
+  "name": "hidden-partner-engine",
+  "version": "1.0.0",
+  "description": "Engine for Hidden Partner Trump Card Game",
+  "type": "module",
+  "scripts": {
+    "test": "node --test server/tests/*.test.js",
+    "start": "node server/index.js",
+    "dev": "nodemon server/index.js",
+    "db:generate": "prisma generate",
+    "db:push": "prisma db push"
+  },
+  "dependencies": {
+    "@prisma/client": "^7.8.0",
+    "bcryptjs": "^3.0.3",
+    "cors": "^2.8.6",
+    "dotenv": "^17.4.2",
+    "express": "^5.2.1",
+    "jsonwebtoken": "^9.0.3",
+    "socket.io": "^4.8.3"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.14",
+    "prisma": "^7.8.0"
+  }
+}

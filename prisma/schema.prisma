@@ -1,0 +1,50 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Profile {
+  id           String   @id @default(uuid()) @db.Uuid
+  email        String   @unique
+  username     String   @unique
+  passwordHash String?  @map("password_hash")
+  gamesPlayed  Int      @default(0) @map("games_played")
+  gamesWon     Int      @default(0) @map("games_won")
+  highestScore Int      @default(0) @map("highest_score")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  matchesWon Match[]   @relation("MatchWinner")
+  accounts   Account[]
+
+  @@map("profiles")
+}
+
+// Linked external-auth identities (e.g. Discord). Not used yet, but lets us
+// add OAuth providers later without changing the Profile shape.
+model Account {
+  id                String @id @default(uuid()) @db.Uuid
+  profileId         String @map("profile_id") @db.Uuid
+  provider          String
+  providerAccountId String @map("provider_account_id")
+
+  profile Profile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@map("accounts")
+}
+
+model Match {
+  id          String   @id @default(uuid()) @db.Uuid
+  date        DateTime @default(now())
+  winnerId    String?  @map("winner_id") @db.Uuid
+  winnerScore Int?     @map("winner_score")
+  playersData Json?    @map("players_data")
+
+  winner Profile? @relation("MatchWinner", fields: [winnerId], references: [id])
+
+  @@map("matches")
+}
