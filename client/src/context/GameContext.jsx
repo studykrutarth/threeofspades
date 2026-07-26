@@ -2,6 +2,7 @@
 import { createContext, useContext, useState, useEffect, useRef } from 'react';
 import { io } from 'socket.io-client';
 import { useAuth } from './AuthContext';
+import { getPlayerKey } from '../lib/playerKey';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
 
@@ -67,7 +68,9 @@ export const GameProvider = ({ children }) => {
     const joinPayload = {
       roomId: room,
       playerName: name,
-      accountUserId: profile?.id || null
+      accountUserId: profile?.id || null,
+      // Lets the server hand this tab back its existing seat after a reload.
+      playerKey: profile?.id || getPlayerKey()
     };
     pendingJoinRef.current = joinPayload;
     setUsername(name);

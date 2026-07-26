@@ -48,6 +48,21 @@ export class Game {
     }
   }
 
+  hasPlayer(id) {
+    return this.players.some(p => p.id === id);
+  }
+
+  // Someone came back to a seat a bot was covering. Their hand and score were
+  // never touched, so handing control back is all that is needed.
+  reconnectPlayer(id, name) {
+    const player = this.players.find(p => p.id === id);
+    if (!player) return false;
+
+    player.isBot = false;
+    if (name) player.name = name;
+    return true;
+  }
+
   // Also used to replay: once a match ends the table can deal a fresh one.
   startMatch() {
     if (this.phase !== 'LOBBY' && this.phase !== 'MATCH_END') {
@@ -135,8 +150,15 @@ export class Game {
     if (!result.ok) throw new Error(result.error);
     
     this.biddingState = result.newState;
-    
+
     if (isBiddingOver(this.biddingState)) {
+      if (!this.biddingState.highestBidderId) {
+        // Everyone passed, so there is no contract. Without this the table would
+        // sit in trump selection waiting on a bid winner that does not exist.
+        this.dealerIndex = (this.dealerIndex + 1) % this.players.length;
+        this.deal();
+        return;
+      }
       this.phase = 'TRUMP_SELECTION';
     }
   }

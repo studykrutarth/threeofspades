@@ -5,6 +5,12 @@ import cors from 'cors';
 import { Game } from './models/Game.js';
 import { signup, login, getProfile, updateProfile, authMiddleware } from './auth.js';
 import { checkDatabaseConnection, prisma } from './db.js';
+import { chooseBid, chooseTrump, choosePartnerCards, chooseCard } from './engine/bot.js';
+
+// How long a bot pauses before acting, so its moves are followable.
+const BOT_TURN_DELAY_MS = 700;
+// How long an empty room is kept alive, so a reload does not destroy the table.
+const EMPTY_ROOM_GRACE_MS = 60_000;
 
 const app = express();
 app.use(cors());
@@ -54,9 +60,9 @@ io.on('connection', (socket) => {
   console.log(`Client connected: ${socket.id}`);
 
   // Join a room
-  socket.on('join_room', ({ roomId, playerName, accountUserId }) => {
+  socket.on('join_room', ({ roomId, playerName, accountUserId, playerKey }) => {
     socket.join(roomId);
-    
+
     if (!rooms.has(roomId)) {
       rooms.set(roomId, {
         game: new Game(),
@@ -65,15 +71,25 @@ io.on('connection', (socket) => {
         savedMatchId: null
       });
     }
-    
+
     const room = rooms.get(roomId);
+    if (room.reapTimer) {
+      clearTimeout(room.reapTimer);
+      room.reapTimer = null;
+    }
     room.clients.add(socket.id);
-    
-    const playerId = socket.id; // use socket id as player id for now
+
+    // The seat is identified by a key the browser keeps, not by the socket, so
+    // reloading the page returns you to the same hand instead of a new seat.
+    const playerId = playerKey || socket.id;
     clientMap.set(socket.id, { roomId, playerId, playerName, accountUserId: accountUserId || null });
 
     try {
-      room.game.addPlayer(playerId, playerName, false, accountUserId || null);
+      if (room.game.hasPlayer(playerId)) {
+        room.game.reconnectPlayer(playerId, playerName);
+      } else {
+        room.game.addPlayer(playerId, playerName, false, accountUserId || null);
+      }
       broadcastState(roomId);
     } catch (err) {
       socket.emit('error', err.message);
@@ -163,7 +179,15 @@ io.on('connection', (socket) => {
           console.error(err.message);
         }
         if (room.clients.size === 0) {
-          rooms.delete(client.roomId);
+          // Hold the table briefly rather than destroying it, so the last
+          // player to drop can reload and come back to their hand.
+          room.reapTimer = setTimeout(() => {
+            const current = rooms.get(client.roomId);
+            if (current && current.clients.size === 0) {
+              if (current.botTimer) clearTimeout(current.botTimer);
+              rooms.delete(client.roomId);
+            }
+          }, EMPTY_ROOM_GRACE_MS);
         }
       }
       clientMap.delete(socket.id);
@@ -233,10 +257,67 @@ async function saveMatchIfEnded(room) {
   }
 }
 
+// Applies whatever the seat on turn should do. Throws if the move is illegal,
+// which the caller treats as a reason to stop rather than retry.
+function takeBotTurn(game, playerId) {
+  const player = game.players.find(p => p.id === playerId);
+  if (!player) return;
+
+  switch (game.phase) {
+    case 'BIDDING':
+      game.placeBid(playerId, chooseBid(game.biddingState.highestBid));
+      break;
+    case 'TRUMP_SELECTION':
+      game.selectTrump(playerId, chooseTrump(player.hand));
+      break;
+    case 'PARTNER_SELECTION':
+      game.selectPartners(playerId, choosePartnerCards(player.hand, game.roundCardIds));
+      break;
+    case 'TRICKS': {
+      const card = chooseCard(player.hand, game.currentTrick?.leadSuit);
+      if (card) game.playCard(playerId, card.id);
+      break;
+    }
+    default:
+      break;
+  }
+}
+
+// If the seat on turn belongs to a bot, act after a beat and then broadcast,
+// which schedules the next one. The chain stops as soon as a human is up.
+function scheduleBotTurn(roomId) {
+  const room = rooms.get(roomId);
+  if (!room || room.botTimer) return;
+
+  const turnId = room.game.getCurrentTurnPlayerId();
+  if (!turnId) return;
+
+  const player = room.game.players.find(p => p.id === turnId);
+  if (!player?.isBot) return;
+
+  room.botTimer = setTimeout(async () => {
+    room.botTimer = null;
+
+    const current = rooms.get(roomId);
+    if (!current) return;
+
+    try {
+      takeBotTurn(current.game, turnId);
+    } catch (err) {
+      // Stop the chain instead of spinning on a move that will never succeed.
+      console.warn(`Bot turn failed for ${turnId}:`, err.message);
+      return;
+    }
+
+    await saveMatchIfEnded(current);
+    broadcastState(roomId);
+  }, BOT_TURN_DELAY_MS);
+}
+
 function broadcastState(roomId) {
   const room = rooms.get(roomId);
   if (!room) return;
-  
+
   // Send private state to each client
   for (const clientId of room.clients) {
     const client = clientMap.get(clientId);
@@ -245,6 +326,8 @@ function broadcastState(roomId) {
       io.to(clientId).emit('game_state', privateState);
     }
   }
+
+  scheduleBotTurn(roomId);
 }
 
 const PORT = process.env.PORT || 3001;
