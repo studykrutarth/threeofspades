@@ -1,5 +1,6 @@
 import 'dotenv/config';
 import pkg from '@prisma/client';
+import { PrismaPg } from '@prisma/adapter-pg';
 const { PrismaClient } = pkg;
 
 // Use a global variable to prevent multiple instances in dev
@@ -50,7 +51,14 @@ export function describeDatabaseUrl(databaseUrl = process.env.DATABASE_URL) {
 
 if (!prisma) {
   try {
+    if (!process.env.DATABASE_URL) throw new Error('DATABASE_URL is not set');
+
+    // Prisma 7 talks to PostgreSQL through a driver adapter rather than its own
+    // query engine, so the connection string is handed to node-postgres here.
+    const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL });
+
     prisma = new PrismaClient({
+      adapter,
       log: ['warn', 'error'],
     });
     if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = prisma;
