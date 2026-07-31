@@ -1,4 +1,7 @@
 node_modules
+# Editor and local AI-tool configuration
+.claude/
+.vscode/
 # Keep environment variables out of version control
 .env
 
