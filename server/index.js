@@ -3,7 +3,7 @@ import { createServer } from 'http';
 import { Server } from 'socket.io';
 import cors from 'cors';
 import { Game } from './models/Game.js';
-import { signup, login, getProfile, updateProfile, authMiddleware } from './auth.js';
+import { signup, login, getProfile, updateProfile, getMatchHistory, authMiddleware } from './auth.js';
 import { checkDatabaseConnection, prisma } from './db.js';
 import { chooseBid, chooseTrump, choosePartnerCards, chooseCard } from './engine/bot.js';
 
@@ -50,6 +50,7 @@ app.post('/auth/signup', signup);
 app.post('/auth/login', login);
 app.get('/auth/profile', authMiddleware, getProfile);
 app.patch('/auth/profile', authMiddleware, updateProfile);
+app.get('/auth/matches', authMiddleware, getMatchHistory);
 
 // Rooms state: roomId -> { game: Game, clients: Set of socket.id, matchSaved: boolean }
 const rooms = new Map();

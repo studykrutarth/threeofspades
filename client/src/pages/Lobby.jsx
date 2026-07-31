@@ -1,17 +1,35 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { fetchMatchHistory } from '../lib/api';
+
+const ROLE_LABELS = { bidder: 'Bid Winner', partner: 'Partner', opponent: 'Opponent' };
 
 export default function Lobby() {
   const [roomId, setRoomId] = useState('');
   const navigate = useNavigate();
-  const { profile, loading, signOut } = useAuth();
+  const { profile, session, loading, signOut } = useAuth();
+
+  const [matches, setMatches] = useState(null);
+  const [matchesError, setMatchesError] = useState('');
 
   useEffect(() => {
     if (!loading && !profile) {
       navigate('/');
     }
   }, [profile, loading, navigate]);
+
+  // Match history needs a real account — guests have no token to fetch with.
+  useEffect(() => {
+    if (!session || profile?.isGuest) return;
+
+    let cancelled = false;
+    fetchMatchHistory(session)
+      .then(data => { if (!cancelled) setMatches(data); })
+      .catch(err => { if (!cancelled) setMatchesError(err.message); });
+
+    return () => { cancelled = true; };
+  }, [session, profile?.isGuest]);
 
   const handleJoin = (e) => {
     e.preventDefault();
@@ -55,9 +73,7 @@ export default function Lobby() {
               <div>
                 <p className="text-xs uppercase tracking-wider opacity-40 font-semibold">Playing as</p>
                 <p className="font-bold text-white">{profile.username}</p>
-                {(profile.gamesPlayed > 0) && (
-                  <p className="text-xs opacity-40">{profile.gamesWon}W / {profile.gamesPlayed} played</p>
-                )}
+                {profile.isGuest && <p className="text-xs opacity-40">Guest — stats aren&apos;t saved</p>}
               </div>
             </div>
             <button
@@ -68,6 +84,27 @@ export default function Lobby() {
               Sign out
             </button>
           </div>
+
+          {!profile.isGuest && (
+            <div className="grid grid-cols-4 gap-2 mb-6">
+              {[
+                { label: 'Played', value: profile.gamesPlayed },
+                { label: 'Won', value: profile.gamesWon },
+                {
+                  label: 'Win Rate',
+                  value: profile.gamesPlayed > 0
+                    ? `${Math.round((profile.gamesWon / profile.gamesPlayed) * 100)}%`
+                    : '—'
+                },
+                { label: 'Best Score', value: profile.highestScore }
+              ].map(stat => (
+                <div key={stat.label} className="glass-panel-light p-2 text-center">
+                  <p className="text-[0.6rem] uppercase tracking-wider opacity-40 leading-tight">{stat.label}</p>
+                  <p className="text-lg font-extrabold text-white leading-tight">{stat.value}</p>
+                </div>
+              ))}
+            </div>
+          )}
 
           <div className="mb-6">
             <button onClick={handleCreate} className="btn-primary w-full text-lg py-4 flex items-center justify-center gap-3">
@@ -104,6 +141,54 @@ export default function Lobby() {
               Join Room
             </button>
           </form>
+
+          {!profile.isGuest && (
+            <div className="mt-8 pt-6" style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+              <p className="text-xs font-semibold uppercase tracking-widest opacity-40 mb-3">Recent Matches</p>
+
+              {matchesError && (
+                <p className="text-xs" style={{ color: 'var(--color-ruby-400)' }}>{matchesError}</p>
+              )}
+
+              {!matchesError && matches === null && (
+                <p className="text-xs opacity-30">Loading…</p>
+              )}
+
+              {!matchesError && matches?.length === 0 && (
+                <p className="text-xs opacity-30">No matches yet — play a full deal to see it here.</p>
+              )}
+
+              {matches?.length > 0 && (
+                <div className="space-y-1.5 max-h-64 overflow-y-auto pr-1">
+                  {matches.map(match => (
+                    <div key={match.id}
+                         className="flex items-center justify-between gap-3 px-3 py-2 rounded-lg"
+                         style={{ background: 'rgba(255,255,255,0.03)' }}>
+                      <div className="min-w-0">
+                        <p className="text-xs font-semibold text-white truncate">
+                          {ROLE_LABELS[match.myRole] || 'Spectator'}
+                          {match.bidAmount != null && (
+                            <span className="opacity-40"> · bid {match.bidAmount}</span>
+                          )}
+                        </p>
+                        <p className="text-[0.65rem] opacity-40">
+                          {new Date(match.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+                        </p>
+                      </div>
+                      <div className="text-right shrink-0">
+                        <p className="text-xs font-bold" style={{ color: match.isWinner ? 'var(--color-emerald-500)' : 'var(--color-ruby-400)' }}>
+                          {match.isWinner ? 'Won' : 'Lost'}
+                        </p>
+                        {match.myScore != null && (
+                          <p className="text-[0.65rem] opacity-40">{match.myScore} pts</p>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </div>
     </div>

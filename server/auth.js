@@ -1,6 +1,7 @@
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { prisma } from './db.js';
+import { summarizeMatchForUser } from './stats.js';
 
 const JWT_EXPIRES_IN = '7d';
 const USERNAME_RE = /^[a-zA-Z0-9_]+$/;
@@ -140,6 +141,35 @@ export async function getProfile(req, res) {
   } catch (error) {
     console.error('Get profile error:', error);
     res.status(500).json({ error: 'Failed to fetch profile' });
+  }
+}
+
+export async function getMatchHistory(req, res) {
+  try {
+    if (!prisma) {
+      return res.status(503).json({ error: 'Database service unavailable' });
+    }
+
+    // playersData is the JSON snapshot from Game.getMatchSnapshot(), stored as
+    // { players: [...], winners: [...], result: {...} }. There is no join
+    // table linking a profile to the matches it played in, so this relies on
+    // JSONB containment: does the "players" array contain an object with this
+    // user's accountUserId? Postgres applies containment recursively, so a
+    // partial object match inside a nested array works here.
+    const marker = JSON.stringify({ players: [{ accountUserId: req.userId }] });
+
+    const matches = await prisma.$queryRaw`
+      SELECT id, date, "players_data" AS "playersData"
+      FROM matches
+      WHERE "players_data" @> ${marker}::jsonb
+      ORDER BY date DESC
+      LIMIT 20
+    `;
+
+    res.json(matches.map(match => summarizeMatchForUser(match, req.userId)));
+  } catch (error) {
+    console.error('Get match history error:', error);
+    res.status(500).json({ error: 'Failed to fetch match history' });
   }
 }
 

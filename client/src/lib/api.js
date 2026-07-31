@@ -46,6 +46,20 @@ export async function fetchProfile(accessToken) {
   return data;
 }
 
+export async function fetchMatchHistory(accessToken) {
+  const response = await fetch(`${API_URL}/auth/matches`, {
+    headers: { Authorization: `Bearer ${accessToken}` }
+  });
+
+  const data = await response.json();
+
+  if (!response.ok) {
+    throw new Error(data.error || 'Failed to load match history');
+  }
+
+  return data;
+}
+
 export async function updateProfileUsername(accessToken, username) {
   const response = await fetch(`${API_URL}/auth/profile`, {
     method: 'PATCH',
