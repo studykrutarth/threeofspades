@@ -228,8 +228,17 @@ async function saveMatchIfEnded(room) {
     room.matchSaved = true;
     room.savedMatchId = match.id;
 
-    await Promise.all(snapshot.players
-      .filter(player => player.accountUserId)
+    // One account counts once per match however many seats it ends up in.
+    // Without this, an account sitting at two seats has its gamesPlayed
+    // incremented twice for a single game.
+    const statsByAccount = new Map();
+    for (const player of snapshot.players) {
+      if (!player.accountUserId) continue;
+      const best = statsByAccount.get(player.accountUserId);
+      if (!best || player.score > best.score) statsByAccount.set(player.accountUserId, player);
+    }
+
+    await Promise.all([...statsByAccount.values()]
       .map(async (player) => {
         const isWinner = snapshot.winners.some(winner => winner.accountUserId === player.accountUserId);
 
