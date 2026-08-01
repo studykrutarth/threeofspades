@@ -188,6 +188,73 @@ Then `docker compose up -d` and `npx prisma migrate dev` again.
 
 ---
 
+## Deploying to Railway
+
+In production the Node server serves the built client itself, so this is **one
+app service plus a database** — no separate frontend host, no cross-origin
+configuration.
+
+**Before you start, one hard constraint:** run **exactly one replica**. Game
+rooms live in an in-memory `Map`, so a second instance would have players
+landing on a server that doesn't know about their room. Scaling out requires a
+Socket.IO Redis adapter first.
+
+**1. Add PostgreSQL** — in your Railway project: **New → Database → PostgreSQL**.
+
+**2. Add the app** — **New → GitHub Repo**, pointed at this repository.
+
+**3. Set the build command** (Settings → Build):
+
+```bash
+npm install && npm run build
+```
+
+`npm run build` runs `prisma generate` and then builds the client. The Prisma
+step is not optional — without it the server fails at runtime with
+`Argument 'id' is missing`.
+
+**4. Set the start command** (Settings → Deploy):
+
+```bash
+npm run db:deploy && npm start
+```
+
+`db:deploy` runs `prisma migrate deploy`, which applies committed migrations
+without prompting. Safe to run on every boot; it's a no-op once up to date.
+
+**5. Set variables** (Variables tab):
+
+| Variable | Value |
+|---|---|
+| `DATABASE_URL` | `${{Postgres.DATABASE_URL}}` — Railway's reference syntax, links the two services |
+| `JWT_SECRET` | a fresh secret, **not** the one from your local `.env` |
+| `NODE_ENV` | `production` |
+
+Generate the secret with:
+
+```bash
+node -e "console.log(require('crypto').randomBytes(48).toString('base64'))"
+```
+
+Do **not** set `PORT` — Railway injects it. Do **not** set `VITE_API_URL`;
+leaving it unset is what makes the client talk to its own origin.
+
+**6. Generate a domain** — Settings → Networking → **Generate Domain**. Railway
+supports WebSockets on generated domains, so Socket.IO needs no extra setup.
+
+### Notes
+
+- **`VITE_API_URL` is baked in at build time.** Vite inlines env vars during
+  `vite build`, so setting it after a deploy does nothing. Left unset, the
+  client uses relative URLs and connects back to whatever origin served it —
+  which is what you want here.
+- **`CORS_ORIGINS`** is only needed if you host the client somewhere else. It
+  takes a comma-separated list of origins. Same-origin deploys need nothing.
+- **Free trial credit** on Railway is limited, and an always-on Node service
+  plus Postgres consumes it continuously. Check your plan before leaving it up.
+
+---
+
 ## Project layout
 
 ```

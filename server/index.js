@@ -2,6 +2,9 @@ import express from 'express';
 import { createServer } from 'http';
 import { Server } from 'socket.io';
 import cors from 'cors';
+import path from 'path';
+import fs from 'fs';
+import { fileURLToPath } from 'url';
 import { Game } from './models/Game.js';
 import { signup, login, getProfile, updateProfile, getMatchHistory, authMiddleware } from './auth.js';
 import { checkDatabaseConnection, prisma } from './db.js';
@@ -12,8 +15,36 @@ const BOT_TURN_DELAY_MS = 700;
 // How long an empty room is kept alive, so a reload does not destroy the table.
 const EMPTY_ROOM_GRACE_MS = 60_000;
 
+// Browser origins allowed to call the API. In production the client is served
+// from this same server, so cross-origin requests are not needed at all and the
+// list is empty unless CORS_ORIGINS is set (comma separated). In development
+// the Vite dev server is on a different port, so it has to be allowed through.
+const allowedOrigins = (process.env.CORS_ORIGINS || '')
+  .split(',')
+  .map(origin => origin.trim())
+  .filter(Boolean);
+
+const isProduction = process.env.NODE_ENV === 'production';
+
+if (!isProduction) {
+  allowedOrigins.push('http://localhost:5173', 'http://127.0.0.1:5173');
+}
+
+const corsOptions = {
+  origin(origin, callback) {
+    // Never error here. Rejecting by throwing turns a CORS decision into a 500,
+    // which also takes out same-origin requests — browsers send an Origin
+    // header on those too, so the server's own JS bundle starts failing.
+    // Returning false just omits the CORS headers: cross-origin callers get
+    // blocked by the browser, same-origin ones are unaffected because CORS
+    // does not apply to them.
+    callback(null, !origin || allowedOrigins.includes(origin));
+  },
+  methods: ['GET', 'POST', 'PATCH']
+};
+
 const app = express();
-app.use(cors());
+app.use(cors(corsOptions));
 app.use(express.json());
 
 function logServerEnvironment() {
@@ -38,12 +69,7 @@ function logServerEnvironment() {
 }
 
 const httpServer = createServer(app);
-const io = new Server(httpServer, {
-  cors: {
-    origin: '*',
-    methods: ['GET', 'POST']
-  }
-});
+const io = new Server(httpServer, { cors: corsOptions });
 
 // Auth routes (own email/password auth; server issues + verifies JWTs)
 app.post('/auth/signup', signup);
@@ -51,6 +77,32 @@ app.post('/auth/login', login);
 app.get('/auth/profile', authMiddleware, getProfile);
 app.patch('/auth/profile', authMiddleware, updateProfile);
 app.get('/auth/matches', authMiddleware, getMatchHistory);
+
+// Serve the built client, when there is one. Registered after the API routes so
+// it can never shadow them, and skipped entirely in development where Vite
+// serves the client itself on another port.
+const clientDist = path.resolve(fileURLToPath(new URL('../client/dist', import.meta.url)));
+const clientIndex = path.join(clientDist, 'index.html');
+const hasClientBuild = fs.existsSync(clientIndex);
+
+if (hasClientBuild) {
+  app.use(express.static(clientDist));
+
+  // The client routes on paths like /room/ABCD, which mean nothing to Express,
+  // so those fall through to index.html and let the router take over.
+  app.use((req, res, next) => {
+    if (req.method !== 'GET' && req.method !== 'HEAD') return next();
+    if (req.path.startsWith('/auth/') || req.path.startsWith('/socket.io/')) return next();
+
+    // A dot in the final segment means a file was asked for — a bundle, an
+    // image, a favicon. Those must 404 rather than get handed index.html,
+    // which the browser would try to parse as JS and report as a baffling
+    // "Unexpected token '<'".
+    if (path.extname(req.path)) return next();
+
+    res.sendFile(clientIndex);
+  });
+}
 
 // Rooms state: roomId -> { game: Game, clients: Set of socket.id, matchSaved: boolean }
 const rooms = new Map();
@@ -343,6 +395,9 @@ function broadcastState(roomId) {
 const PORT = process.env.PORT || 3001;
 httpServer.listen(PORT, () => {
   console.log(`Server listening on port ${PORT}`);
+  console.log(hasClientBuild
+    ? `[static] Serving the client build from ${clientDist}`
+    : '[static] No client build found; API and websockets only.');
   logServerEnvironment();
   checkDatabaseConnection();
 });

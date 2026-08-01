@@ -3,8 +3,7 @@ import { createContext, useContext, useState, useEffect, useRef } from 'react';
 import { io } from 'socket.io-client';
 import { useAuth } from './AuthContext';
 import { getPlayerKey } from '../lib/playerKey';
-
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+import { SOCKET_URL } from '../lib/apiUrl';
 
 const GameContext = createContext();
 
@@ -12,7 +11,7 @@ export const useGame = () => useContext(GameContext);
 
 export const GameProvider = ({ children }) => {
   const { profile } = useAuth();
-  const [socket] = useState(() => io(API_URL, {
+  const [socket] = useState(() => io(SOCKET_URL, {
     autoConnect: false
   }));
   const pendingJoinRef = useRef(null);
