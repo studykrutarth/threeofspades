@@ -8,7 +8,7 @@ import { fileURLToPath } from 'url';
 import { Game } from './models/Game.js';
 import { signup, login, getProfile, updateProfile, getMatchHistory, authMiddleware } from './auth.js';
 import { checkDatabaseConnection, prisma } from './db.js';
-import { chooseBid, chooseTrump, choosePartnerCards, chooseCard } from './engine/bot.js';
+import { chooseBid, chooseTrump, choosePartnerCards, chooseCard, mustOpenBidding } from './engine/bot.js';
 
 // How long a bot pauses before acting, so its moves are followable.
 const BOT_TURN_DELAY_MS = 700;
@@ -144,6 +144,47 @@ io.on('connection', (socket) => {
         room.game.addPlayer(playerId, playerName, false, accountUserId || null);
       }
       broadcastState(roomId);
+    } catch (err) {
+      socket.emit('error', err.message);
+    }
+  });
+
+  // Seat bots. A solo player asks for three at once, so this takes a count and
+  // broadcasts once rather than making the client fire four round trips. A
+  // count that overruns the six-seat limit fills what it can instead of
+  // failing outright.
+  socket.on('add_bot', ({ count = 1 } = {}) => {
+    const client = clientMap.get(socket.id);
+    if (!client) return;
+    const room = rooms.get(client.roomId);
+    if (!room) return;
+
+    let added = 0;
+    let lastError = null;
+
+    for (let i = 0; i < Math.min(Math.max(count, 1), 6); i++) {
+      try {
+        room.game.addBot();
+        added++;
+      } catch (err) {
+        lastError = err.message;
+        break;
+      }
+    }
+
+    if (added === 0 && lastError) socket.emit('error', lastError);
+    if (added > 0) broadcastState(client.roomId);
+  });
+
+  socket.on('remove_bot', ({ botId }) => {
+    const client = clientMap.get(socket.id);
+    if (!client) return;
+    const room = rooms.get(client.roomId);
+    if (!room) return;
+
+    try {
+      room.game.removeBot(botId);
+      broadcastState(client.roomId);
     } catch (err) {
       socket.emit('error', err.message);
     }
@@ -319,15 +360,39 @@ async function saveMatchIfEnded(room) {
   }
 }
 
+// Everything this seat is entitled to know about the table, which is no more
+// than the human sitting in it would see: public bid and reveal state, plus its
+// own hand and role.
+function botContext(game, player) {
+  return {
+    myId: player.id,
+    myRole: game.roles.get(player.id) || null,
+    bidderId: game.biddingState?.highestBidderId ?? null,
+    revealedIds: game.players.filter(p => p.isRevealed).map(p => p.id),
+    trump: game.trump,
+    trick: game.currentTrick,
+    seatCount: game.players.length
+  };
+}
+
 // Applies whatever the seat on turn should do. Throws if the move is illegal,
-// which the caller treats as a reason to stop rather than retry.
-function takeBotTurn(game, playerId) {
+// which the caller treats as a reason to fall back rather than retry.
+//
+// `useContext: false` drops the table context, which puts every decision on the
+// engine's conservative path — bid the floor or pass, play the cheapest legal
+// card. That path cannot produce an illegal move, so it is what the scheduler
+// retries with if the playing-to-win path is ever rejected.
+function takeBotTurn(game, playerId, { useContext = true } = {}) {
   const player = game.players.find(p => p.id === playerId);
   if (!player) return;
 
+  const context = useContext ? botContext(game, player) : null;
+
   switch (game.phase) {
     case 'BIDDING':
-      game.placeBid(playerId, chooseBid(game.biddingState.highestBid));
+      game.placeBid(playerId, chooseBid(game.biddingState.highestBid, context
+        ? { hand: player.hand, mustOpen: mustOpenBidding(game.biddingState) }
+        : {}));
       break;
     case 'TRUMP_SELECTION':
       game.selectTrump(playerId, chooseTrump(player.hand));
@@ -336,7 +401,7 @@ function takeBotTurn(game, playerId) {
       game.selectPartners(playerId, choosePartnerCards(player.hand, game.roundCardIds));
       break;
     case 'TRICKS': {
-      const card = chooseCard(player.hand, game.currentTrick?.leadSuit);
+      const card = chooseCard(player.hand, game.currentTrick?.leadSuit, context);
       if (card) game.playCard(playerId, card.id);
       break;
     }
@@ -366,9 +431,17 @@ function scheduleBotTurn(roomId) {
     try {
       takeBotTurn(current.game, turnId);
     } catch (err) {
-      // Stop the chain instead of spinning on a move that will never succeed.
+      // A table of three bots and one player has nobody who can unstick a seat
+      // that refuses to move, so retry on the conservative path, which is
+      // always legal, before giving up.
       console.warn(`Bot turn failed for ${turnId}:`, err.message);
-      return;
+      try {
+        takeBotTurn(current.game, turnId, { useContext: false });
+      } catch (fallbackErr) {
+        // Stop the chain instead of spinning on a move that will never succeed.
+        console.error(`Bot ${turnId} is stuck:`, fallbackErr.message);
+        return;
+      }
     }
 
     await saveMatchIfEnded(current);

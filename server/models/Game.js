@@ -5,6 +5,10 @@ import { validatePartnerSelection, assignPartners, notifyPartners, checkReveal, 
 import { initTrick, playCard, isTrickComplete, determineTrickWinner } from '../engine/tricks.js';
 import { resolveRound, applyScoreDeltas, getResultSummary } from '../engine/scoring.js';
 
+// Drawn in order so the seats around a solo table read as distinct people. The
+// client tags them as bots separately, so these do not need to announce it.
+const BOT_NAMES = ['Ada', 'Bo', 'Cleo', 'Dex', 'Ines'];
+
 export class Game {
   // A match is a single deal: the whole deck is dealt out and played to the last
   // trick, which is 13 tricks with 4 players, 10 with 5, and 8 with 6.
@@ -34,6 +38,33 @@ export class Game {
     const player = new Player(id, name, isBot, accountUserId);
     this.players.push(player);
     return player;
+  }
+
+  // Seats a bot so a table that is short of people can still deal — one player
+  // plus three bots is a full game. The seat is an ordinary Player with isBot
+  // set, so everything downstream (dealing, scoring, the turn order) treats it
+  // exactly like anyone else; only the bot scheduler in index.js cares.
+  addBot(name = null) {
+    const taken = new Set(this.players.map(p => p.name));
+    const chosenName = name || BOT_NAMES.find(botName => !taken.has(botName)) || `Bot ${this.players.length + 1}`;
+
+    // Bots have no browser to hold a playerKey, so the id is minted here. Human
+    // seat ids are account ids or generated keys, neither of which look like
+    // this.
+    let n = 1;
+    while (this.players.some(p => p.id === `bot-${n}`)) n++;
+
+    return this.addPlayer(`bot-${n}`, chosenName, true);
+  }
+
+  removeBot(id) {
+    if (this.phase !== 'LOBBY') throw new Error('Can only remove bots in LOBBY phase');
+
+    const player = this.players.find(p => p.id === id);
+    if (!player) throw new Error('No such seat');
+    if (!player.isBot) throw new Error('Can only remove bot seats');
+
+    this.players = this.players.filter(p => p.id !== id);
   }
 
   removePlayer(id) {

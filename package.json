@@ -9,6 +9,7 @@
   "scripts": {
     "test": "node --test server/tests/*.test.js",
     "start": "node server/index.js",
+    "evolve": "node server/engine/evolve.js",
     "dev": "nodemon server/index.js",
     "build": "prisma generate && npm --prefix client install && npm --prefix client run build",
     "db:generate": "prisma generate",

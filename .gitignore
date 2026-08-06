@@ -6,3 +6,9 @@ node_modules
 .env
 
 /generated/prisma
+
+# Local training state for the bot trainer. The weights it produces
+# (bot-params.json) are committed; the population it is mid-run on, and the
+# archives it makes of superseded metrics, are not.
+server/engine/evolution-checkpoint.json
+server/engine/bot-params.*.json
