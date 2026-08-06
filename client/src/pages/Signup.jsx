@@ -45,15 +45,13 @@ export default function Signup() {
 
   return (
     <div className="w-full max-w-lg animate-float-in">
-      <div className="glass-panel p-10 relative overflow-hidden">
-        <div className="absolute top-4 right-5 text-3xl opacity-[0.06] font-bold select-none" style={{ color: 'var(--color-gold-500)' }}>♠</div>
-        <div className="absolute bottom-4 left-5 text-3xl opacity-[0.06] font-bold select-none rotate-180" style={{ color: 'var(--color-ruby-500)' }}>♥</div>
-
-        <div className="absolute inset-0 animate-shimmer pointer-events-none" />
+      <div className="panel p-10 relative overflow-hidden">
+        <div className="absolute top-4 right-5 text-3xl opacity-[0.06] font-bold select-none" style={{ color: 'var(--color-warn)' }}>♠</div>
+        <div className="absolute bottom-4 left-5 text-3xl opacity-[0.06] font-bold select-none rotate-180" style={{ color: 'var(--color-bad)' }}>♥</div>
 
         <div className="relative z-10">
           <div className="text-center mb-8">
-            <h2 className="text-4xl font-extrabold text-white mb-2" style={{ fontFamily: 'var(--font-heading)' }}>
+            <h2 className="text-4xl font-extrabold text-white mb-2 tracking-wide" style={{ fontFamily: 'var(--font-heading)' }}>
               Join the Table
             </h2>
             <p className="text-sm opacity-50">
@@ -63,14 +61,14 @@ export default function Signup() {
 
           {error && (
             <div className="mb-6 p-3 rounded-lg text-sm"
-                 style={{ background: 'rgba(239, 68, 68, 0.1)', color: 'var(--color-ruby-400)', border: '1px solid rgba(239, 68, 68, 0.3)' }}>
+                 style={{ background: 'rgba(239, 68, 68, 0.1)', color: 'var(--color-bad)', border: '1px solid rgba(239, 68, 68, 0.3)' }}>
               {error}
             </div>
           )}
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <label htmlFor="email" className="block text-xs font-semibold uppercase tracking-wider mb-2 opacity-50">
+              <label htmlFor="email" className="label block text-xs font-semibold uppercase tracking-wider mb-2">
                 Email
               </label>
               <input
@@ -86,7 +84,7 @@ export default function Signup() {
             </div>
 
             <div>
-              <label htmlFor="username" className="block text-xs font-semibold uppercase tracking-wider mb-2 opacity-50">
+              <label htmlFor="username" className="label block text-xs font-semibold uppercase tracking-wider mb-2">
                 Username
               </label>
               <input
@@ -102,7 +100,7 @@ export default function Signup() {
             </div>
 
             <div>
-              <label htmlFor="password" className="block text-xs font-semibold uppercase tracking-wider mb-2 opacity-50">
+              <label htmlFor="password" className="label block text-xs font-semibold uppercase tracking-wider mb-2">
                 Password
               </label>
               <input
@@ -117,7 +115,7 @@ export default function Signup() {
             </div>
 
             <div>
-              <label htmlFor="confirmPassword" className="block text-xs font-semibold uppercase tracking-wider mb-2 opacity-50">
+              <label htmlFor="confirmPassword" className="label block text-xs font-semibold uppercase tracking-wider mb-2">
                 Confirm Password
               </label>
               <input
@@ -134,7 +132,7 @@ export default function Signup() {
             <button
               type="submit"
               disabled={loading}
-              className="btn-gold w-full text-lg py-4 disabled:opacity-50"
+              className="btn-accent w-full text-lg py-4 disabled:opacity-50"
             >
               {loading ? 'Creating account...' : 'Create Account'}
             </button>

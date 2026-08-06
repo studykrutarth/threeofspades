@@ -20,28 +20,33 @@ export default function PlayingCard({
   };
   const isSmall = size === 'sm' || size === 'xs' || size === 'mini';
 
-  // Card back
+  // Card back — one flat blue with a soft inner pip. No lattice, no metallic
+  // frame: a fanned stack should read as a quiet block of "someone's hand",
+  // not compete with the face-up cards on the board.
   if (!card) {
     return (
       <div className={clsx(
-        "rounded-lg shadow-lg flex items-center justify-center cursor-default select-none overflow-hidden",
+        "rounded-lg flex items-center justify-center cursor-default select-none overflow-hidden",
         sizes[size],
         className
       )}
       style={{
-        background: 'linear-gradient(145deg, #24457a, #12294d)',
+        background: '#39598f',
         // A light rim separates each card in an overlapping fan.
-        border: '1.5px solid rgba(255,255,255,0.55)',
-        boxShadow: '0 3px 10px rgba(0,0,0,0.5)',
+        border: '1.5px solid rgba(255,255,255,0.45)',
+        boxShadow: '0 1px 4px rgba(0,0,0,0.3)',
         ...style,
       }}>
-        {/* Swap this block for real back art later — it fills the whole face. */}
-        <div className="w-full h-full"
-             style={{
-               background:
-                 'repeating-linear-gradient(-45deg, transparent 0 4px, rgba(212,168,67,0.22) 4px 8px),' +
-                 'repeating-linear-gradient(45deg, transparent 0 4px, rgba(212,168,67,0.22) 4px 8px)',
-             }} />
+        {/* At sliver width the pip is noise rather than decoration. */}
+        {size !== 'mini' && (
+          <span className="leading-none"
+                style={{
+                  color: 'rgba(255,255,255,0.28)',
+                  fontSize: size === 'xs' ? '0.85rem' : size === 'sm' ? '1.25rem' : '1.7rem'
+                }}>
+            ♠
+          </span>
+        )}
       </div>
     );
   }
@@ -67,30 +72,23 @@ export default function PlayingCard({
         className
       )}
       style={{
-        background: isThreeOfSpades
-          ? 'linear-gradient(145deg, #fffbeb, #fef3c7)'
-          : 'linear-gradient(145deg, #ffffff, #f1f5f9)',
+        // Flat white stock. The 3♠ (worth 30 — the most valuable card in the
+        // deck) earns a coloured ring rather than a shimmer; an animation
+        // running on a card you hold all round is pure distraction.
+        background: '#ffffff',
         border: highlight
-          ? '2px solid var(--color-emerald-500)'
+          ? '2px solid var(--color-good)'
           : isThreeOfSpades
-            ? '1.5px solid var(--color-gold-500)'
-            : '1px solid rgba(0,0,0,0.08)',
+            ? '2px solid var(--color-warn)'
+            : '1px solid rgba(0,0,0,0.12)',
         boxShadow: highlight
-          ? '0 0 16px rgba(16,185,129,0.5)'
-          : isThreeOfSpades
-            ? '0 4px 16px rgba(212,168,67,0.3)'
-            : '0 2px 8px rgba(0,0,0,0.15)',
+          ? '0 0 0 2px rgba(70,178,107,0.35)'
+          : '0 1px 4px rgba(0,0,0,0.2)',
         color: cardColor,
         opacity: dimmed ? 0.4 : 1,
         ...style,
       }}
     >
-      {/* Gold shimmer on 3♠ */}
-      {isThreeOfSpades && (
-        <div className="absolute inset-0 animate-shimmer pointer-events-none"
-             style={{ background: 'linear-gradient(90deg, transparent 0%, rgba(212,168,67,0.15) 50%, transparent 100%)', backgroundSize: '200% 100%' }} />
-      )}
-
       {/* Top-left corner. The point badge lives here rather than on the right
           edge so it survives being overlapped in a fanned hand. */}
       <div className="absolute top-1.5 left-1.5 flex flex-col items-center leading-none z-10">
@@ -100,8 +98,8 @@ export default function PlayingCard({
           <span className="mt-1 font-extrabold rounded px-1 leading-tight"
                 style={{
                   fontSize: '0.5rem',
-                  background: isThreeOfSpades ? 'var(--color-gold-500)' : 'rgba(30,41,59,0.85)',
-                  color: isThreeOfSpades ? 'var(--color-felt-900)' : '#f1f5f9'
+                  background: isThreeOfSpades ? 'var(--color-warn)' : 'rgba(30,41,59,0.85)',
+                  color: isThreeOfSpades ? 'var(--color-bg)' : '#f1f5f9'
                 }}>
             {points}
           </span>

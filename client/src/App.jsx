@@ -15,23 +15,18 @@ function AppContent() {
   const isTableRoute = location.pathname.startsWith('/room/');
 
   return (
-    <div className="h-screen flex flex-col relative overflow-hidden" style={{ background: 'var(--color-felt-900)' }}>
-      {/* Background decorative orbs */}
-      <div className="fixed inset-0 pointer-events-none overflow-hidden z-0">
-        <div className="absolute -top-40 -left-40 w-96 h-96 rounded-full opacity-[0.07]"
-             style={{ background: 'radial-gradient(circle, var(--color-ruby-500), transparent 70%)' }} />
-        <div className="absolute top-1/2 -right-32 w-80 h-80 rounded-full opacity-[0.05]"
-             style={{ background: 'radial-gradient(circle, var(--color-gold-500), transparent 70%)' }} />
-        <div className="absolute -bottom-20 left-1/3 w-72 h-72 rounded-full opacity-[0.04]"
-             style={{ background: 'radial-gradient(circle, var(--color-emerald-500), transparent 70%)' }} />
-      </div>
+    <div className="h-screen flex flex-col relative overflow-hidden" style={{ background: 'var(--color-bg)' }}>
+      {/* A single flat wash. The warm lamp-pool and heavy vignette that used to
+          live here were part of the casino-table look we moved away from. */}
+      <div className="fixed inset-0 pointer-events-none z-0"
+           style={{ background: 'radial-gradient(ellipse 90% 70% at 50% 0%, #1d2537 0%, var(--color-bg) 72%)' }} />
 
       {/* Error toast */}
       {error && (
         <div className="fixed top-6 left-1/2 z-[100] animate-toast-in"
              style={{ transform: 'translateX(-50%)' }}>
-          <div className="flex items-center gap-3 px-6 py-3 rounded-xl shadow-2xl"
-               style={{ background: 'linear-gradient(135deg, var(--color-ruby-600), var(--color-ruby-500))', border: '1px solid rgba(255,255,255,0.15)' }}>
+          <div className="flex items-center gap-3 px-5 py-3 rounded-xl shadow-lg"
+               style={{ background: 'var(--color-bad)' }}>
             <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><circle cx="10" cy="10" r="9" stroke="white" strokeWidth="1.5"/><path d="M10 6v5M10 13.5v.5" stroke="white" strokeWidth="1.5" strokeLinecap="round"/></svg>
             <span className="text-white font-medium text-sm">{error}</span>
           </div>
@@ -39,16 +34,18 @@ function AppContent() {
       )}
       
       {/* Header */}
-      <header className="relative z-10 px-6 py-4 flex justify-between items-center"
-              style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
-        <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-lg flex items-center justify-center text-xl font-bold"
-               style={{ background: 'linear-gradient(135deg, var(--color-ruby-500), var(--color-gold-500))' }}>
+      <header className="relative z-10 px-5 py-3 flex justify-between items-center shrink-0"
+              style={{ borderBottom: '1px solid var(--color-hairline)' }}>
+        <div className="flex items-center gap-2.5">
+          {/* Flat card-shaped mark — the object the game is made of, drawn as a
+              simple tile rather than an embossed prop. */}
+          <div className="w-7 h-9 rounded-md flex items-center justify-center text-base shrink-0"
+               style={{ background: '#ffffff', color: 'var(--color-card-black)' }}>
             ♠
           </div>
-          <h1 className="text-xl font-bold tracking-tight" style={{ fontFamily: 'var(--font-heading)' }}>
-            <span style={{ color: 'var(--color-gold-400)' }}>Hidden</span>{' '}
-            <span className="text-white">Partner</span>
+          <h1 className="text-lg font-extrabold">
+            <span style={{ color: 'var(--color-ink)' }}>Three of </span>
+            <span style={{ color: 'var(--color-accent)' }}>Spades</span>
           </h1>
         </div>
         {profile && (
@@ -65,15 +62,22 @@ function AppContent() {
         )}
       </header>
 
-      {/* Main content */}
-      <main className={`flex-grow relative z-10 min-h-0 flex ${isTableRoute ? '' : 'items-center justify-center p-4 md:p-8 overflow-y-auto'}`}>
-        <Routes>
-          <Route path="/" element={<Home />} />
-          <Route path="/login" element={<Login />} />
-          <Route path="/signup" element={<Signup />} />
-          <Route path="/lobby" element={<Lobby />} />
-          <Route path="/room/:id" element={<Room />} />
-        </Routes>
+      {/* Main content.
+          Centering lives on the inner wrapper, not on a scrolling flex parent:
+          `items-center` on the scroll container pushes overflow above the scroll
+          origin, where it can never be reached — on a short viewport that made
+          the top of the signup form unreachable. `min-h-full` centres a short
+          page but lets a tall one grow downward and scroll normally. */}
+      <main className={`flex-grow relative z-10 min-h-0 ${isTableRoute ? 'flex' : 'overflow-y-auto'}`}>
+        <div className={isTableRoute ? 'flex-1 min-h-0 flex' : 'min-h-full flex items-center justify-center p-4 md:p-8'}>
+          <Routes>
+            <Route path="/" element={<Home />} />
+            <Route path="/login" element={<Login />} />
+            <Route path="/signup" element={<Signup />} />
+            <Route path="/lobby" element={<Lobby />} />
+            <Route path="/room/:id" element={<Room />} />
+          </Routes>
+        </div>
       </main>
 
       {/* Footer — hidden at the table so the game gets the full height */}

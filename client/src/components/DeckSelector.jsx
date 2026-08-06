@@ -5,7 +5,8 @@ const SUITS = ['S', 'H', 'D', 'C'];
 const RANKS = ['A', 'K', 'Q', 'J', '10', '9', '8', '7', '6', '5', '4', '3', '2'];
 const SUIT_NAMES = { S: 'Spades', H: 'Hearts', D: 'Diamonds', C: 'Clubs' };
 const SUIT_SYMBOLS = { S: '♠', H: '♥', D: '♦', C: '♣' };
-const SUIT_COLORS = { S: 'var(--color-card-black)', H: 'var(--color-card-red)', D: 'var(--color-card-red)', C: 'var(--color-card-black)' };
+// On-dark variants — the card-face black is invisible against the panel.
+const SUIT_COLORS = { S: '#e2e8f0', H: '#ef4444', D: '#ef4444', C: '#e2e8f0' };
 
 export default function DeckSelector({ onSelect, excludeCards = [], allowedCardIds = null, maxSelect = 2 }) {
   const [selectedIds, setSelectedIds] = useState([]);
@@ -36,11 +37,11 @@ export default function DeckSelector({ onSelect, excludeCards = [], allowedCardI
   };
 
   return (
-    <div className="glass-panel p-6 mt-6 animate-float-in">
+    <div className="panel p-6 mt-6 animate-float-in">
       {/* Header */}
       <div className="flex justify-between items-start gap-4 mb-4 pb-3" style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
         <div className="min-w-0">
-          <h3 className="text-base font-bold text-white" style={{ fontFamily: 'var(--font-heading)' }}>
+          <h3 className="text-base font-bold text-white tracking-wide" style={{ fontFamily: 'var(--font-heading)' }}>
             Select Partner Cards
           </h3>
           <p className="text-xs opacity-40 mt-0.5 leading-snug">
@@ -50,7 +51,7 @@ export default function DeckSelector({ onSelect, excludeCards = [], allowedCardI
         <button
           onClick={handleConfirm}
           disabled={selectedIds.length !== maxSelect}
-          className={`shrink-0 whitespace-nowrap px-4 py-2 text-sm ${selectedIds.length === maxSelect ? 'btn-gold' : 'btn-ghost opacity-50 cursor-not-allowed'}`}
+          className={`shrink-0 whitespace-nowrap px-4 py-2 text-sm ${selectedIds.length === maxSelect ? 'btn-accent' : 'btn-ghost opacity-50 cursor-not-allowed'}`}
         >
           Confirm {selectedIds.length}/{maxSelect}
         </button>
@@ -62,7 +63,7 @@ export default function DeckSelector({ onSelect, excludeCards = [], allowedCardI
           <div key={suit}>
             <div className="flex items-center gap-2 mb-3">
               <span className="text-xl" style={{ color: SUIT_COLORS[suit] }}>{SUIT_SYMBOLS[suit]}</span>
-              <h4 className="text-sm font-semibold uppercase tracking-wider opacity-50">{SUIT_NAMES[suit]}</h4>
+              <h4 className="label text-sm font-semibold uppercase tracking-wider">{SUIT_NAMES[suit]}</h4>
             </div>
             <div className="flex flex-wrap gap-2">
               {deck.filter(c => c.suit === suit).map(card => {
@@ -78,13 +79,13 @@ export default function DeckSelector({ onSelect, excludeCards = [], allowedCardI
                         : "opacity-80 hover:opacity-100"
                       }
                       style={isSelected ? { 
-                        '--tw-ring-color': 'var(--color-gold-500)',
-                        '--tw-ring-offset-color': 'var(--color-felt-800)',
+                        '--tw-ring-color': 'var(--color-warn)',
+                        '--tw-ring-offset-color': 'var(--color-surface)',
                       } : {}}
                     />
                     {isSelected && (
                       <div className="absolute -top-1 -right-1 w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold shadow-lg"
-                           style={{ background: 'var(--color-gold-500)', color: 'var(--color-felt-900)' }}>
+                           style={{ background: 'var(--color-warn)', color: 'var(--color-bg)' }}>
                         ✓
                       </div>
                     )}

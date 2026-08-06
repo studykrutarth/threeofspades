@@ -32,7 +32,7 @@ export default function Home() {
     return (
       <div className="flex flex-col items-center justify-center gap-4">
         <div className="w-16 h-16 rounded-full animate-spin-slow"
-             style={{ border: '3px solid rgba(255,255,255,0.08)', borderTopColor: 'var(--color-gold-500)' }} />
+             style={{ border: '3px solid rgba(255,255,255,0.08)', borderTopColor: 'var(--color-warn)' }} />
         <p className="text-sm opacity-40">Loading…</p>
       </div>
     );
@@ -40,19 +40,17 @@ export default function Home() {
 
   return (
     <div className="w-full max-w-lg animate-float-in">
-      <div className="glass-panel p-10 relative overflow-hidden">
-        <div className="absolute top-4 right-5 text-3xl opacity-[0.06] font-bold select-none" style={{ color: 'var(--color-gold-500)' }}>♠</div>
-        <div className="absolute bottom-4 left-5 text-3xl opacity-[0.06] font-bold select-none rotate-180" style={{ color: 'var(--color-ruby-500)' }}>♥</div>
-
-        <div className="absolute inset-0 animate-shimmer pointer-events-none" />
+      <div className="panel p-10 relative overflow-hidden">
+        <div className="absolute top-4 right-5 text-3xl opacity-[0.06] font-bold select-none" style={{ color: 'var(--color-warn)' }}>♠</div>
+        <div className="absolute bottom-4 left-5 text-3xl opacity-[0.06] font-bold select-none rotate-180" style={{ color: 'var(--color-bad)' }}>♥</div>
 
         <div className="relative z-10">
           <div className="text-center mb-8">
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-semibold tracking-widest uppercase mb-4"
-                 style={{ background: 'rgba(212,168,67,0.12)', color: 'var(--color-gold-400)', border: '1px solid rgba(212,168,67,0.2)' }}>
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs mb-4"
+                 style={{ background: 'rgba(255,255,255,0.06)', color: 'var(--color-ink-dim)' }}>
               {SUIT_SYMBOLS.map((s, i) => <span key={i} className="text-sm">{s}</span>)}
             </div>
-            <h2 className="text-4xl font-extrabold text-white mb-2" style={{ fontFamily: 'var(--font-heading)' }}>
+            <h2 className="text-4xl font-extrabold text-white mb-2 tracking-wide" style={{ fontFamily: 'var(--font-heading)' }}>
               Welcome to the Table
             </h2>
             <p className="text-sm opacity-50 max-w-xs mx-auto">
@@ -63,19 +61,14 @@ export default function Home() {
           <div className="space-y-3">
             <button
               onClick={() => navigate('/login')}
-              className="btn-gold w-full text-lg py-4"
+              className="btn-accent w-full text-lg py-4"
             >
               Sign In
             </button>
 
             <button
               onClick={() => navigate('/signup')}
-              className="w-full text-lg py-4 font-semibold rounded-lg transition-all"
-              style={{
-                background: 'rgba(255,255,255,0.05)',
-                color: 'var(--color-gold-400)',
-                border: '1px solid rgba(212,168,67,0.3)'
-              }}
+              className="btn-ghost w-full text-lg py-4"
             >
               Create Account
             </button>
@@ -83,7 +76,7 @@ export default function Home() {
 
           <div className="relative flex items-center py-4">
             <div className="flex-grow h-px" style={{ background: 'rgba(255,255,255,0.08)' }}></div>
-            <span className="flex-shrink-0 mx-4 text-xs font-semibold uppercase tracking-widest opacity-25">or</span>
+            <span className="label flex-shrink-0 mx-4 text-xs font-semibold uppercase tracking-widest">or</span>
             <div className="flex-grow h-px" style={{ background: 'rgba(255,255,255,0.08)' }}></div>
           </div>
 
@@ -98,7 +91,7 @@ export default function Home() {
                 maxLength={20}
                 autoFocus
               />
-              {guestError && <p className="text-xs text-center" style={{ color: 'var(--color-ruby-400)' }}>{guestError}</p>}
+              {guestError && <p className="text-xs text-center" style={{ color: 'var(--color-bad)' }}>{guestError}</p>}
               <button type="submit" className="btn-primary w-full text-lg py-4">
                 Continue as Guest
               </button>
@@ -106,8 +99,7 @@ export default function Home() {
           ) : (
             <button
               onClick={() => setShowGuestForm(true)}
-              className="w-full text-sm py-3 font-semibold rounded-lg transition-all opacity-60 hover:opacity-90"
-              style={{ background: 'rgba(255,255,255,0.03)', border: '1px dashed rgba(255,255,255,0.15)' }}
+              className="btn-ghost w-full text-sm py-3"
             >
               Play as Guest (no account needed)
             </button>

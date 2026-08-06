@@ -52,7 +52,7 @@ export default function Lobby() {
     return (
       <div className="flex flex-col items-center justify-center gap-4">
         <div className="w-16 h-16 rounded-full animate-spin-slow"
-             style={{ border: '3px solid rgba(255,255,255,0.08)', borderTopColor: 'var(--color-gold-500)' }} />
+             style={{ border: '3px solid rgba(255,255,255,0.08)', borderTopColor: 'var(--color-warn)' }} />
         <p className="text-sm opacity-40">Loading…</p>
       </div>
     );
@@ -60,18 +60,16 @@ export default function Lobby() {
 
   return (
     <div className="w-full max-w-lg animate-float-in">
-      <div className="glass-panel p-10 relative overflow-hidden">
-        <div className="absolute inset-0 animate-shimmer pointer-events-none" />
-
+      <div className="panel p-10 relative overflow-hidden">
         <div className="relative z-10">
           <div className="flex items-center justify-between gap-3 mb-8">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold"
-                   style={{ background: 'linear-gradient(135deg, var(--color-ruby-500), var(--color-gold-500))' }}>
+              <div className="w-10 h-10 rounded-full flex items-center justify-center text-sm font-extrabold text-white"
+                   style={{ background: 'var(--color-accent)' }}>
                 {profile.username?.charAt(0)?.toUpperCase()}
               </div>
               <div>
-                <p className="text-xs uppercase tracking-wider opacity-40 font-semibold">Playing as</p>
+                <p className="label text-xs uppercase tracking-wider font-semibold">Playing as</p>
                 <p className="font-bold text-white">{profile.username}</p>
                 {profile.isGuest && <p className="text-xs opacity-40">Guest — stats aren&apos;t saved</p>}
               </div>
@@ -98,8 +96,8 @@ export default function Lobby() {
                 },
                 { label: 'Best Score', value: profile.highestScore }
               ].map(stat => (
-                <div key={stat.label} className="glass-panel-light p-2 text-center">
-                  <p className="text-[0.6rem] uppercase tracking-wider opacity-40 leading-tight">{stat.label}</p>
+                <div key={stat.label} className="panel-inset p-2 text-center">
+                  <p className="label text-[0.6rem] uppercase tracking-wider leading-tight">{stat.label}</p>
                   <p className="text-lg font-extrabold text-white leading-tight">{stat.value}</p>
                 </div>
               ))}
@@ -115,7 +113,7 @@ export default function Lobby() {
 
           <div className="relative flex items-center py-4">
             <div className="flex-grow h-px" style={{ background: 'rgba(255,255,255,0.08)' }}></div>
-            <span className="flex-shrink-0 mx-4 text-xs font-semibold uppercase tracking-widest opacity-25">
+            <span className="label flex-shrink-0 mx-4 text-xs font-semibold uppercase tracking-widest">
               or join
             </span>
             <div className="flex-grow h-px" style={{ background: 'rgba(255,255,255,0.08)' }}></div>
@@ -123,7 +121,7 @@ export default function Lobby() {
 
           <form onSubmit={handleJoin} className="space-y-4">
             <div>
-              <label htmlFor="room-code" className="block text-xs font-semibold uppercase tracking-wider mb-2 opacity-50">
+              <label htmlFor="room-code" className="label block text-xs font-semibold uppercase tracking-wider mb-2">
                 Room Code
               </label>
               <input
@@ -137,17 +135,17 @@ export default function Lobby() {
                 maxLength={4}
               />
             </div>
-            <button type="submit" className="btn-gold w-full py-3">
+            <button type="submit" className="btn-accent w-full py-3">
               Join Room
             </button>
           </form>
 
           {!profile.isGuest && (
             <div className="mt-8 pt-6" style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }}>
-              <p className="text-xs font-semibold uppercase tracking-widest opacity-40 mb-3">Recent Matches</p>
+              <p className="label text-xs font-semibold uppercase tracking-widest mb-3">Recent Matches</p>
 
               {matchesError && (
-                <p className="text-xs" style={{ color: 'var(--color-ruby-400)' }}>{matchesError}</p>
+                <p className="text-xs" style={{ color: 'var(--color-bad)' }}>{matchesError}</p>
               )}
 
               {!matchesError && matches === null && (
@@ -176,7 +174,7 @@ export default function Lobby() {
                         </p>
                       </div>
                       <div className="text-right shrink-0">
-                        <p className="text-xs font-bold" style={{ color: match.isWinner ? 'var(--color-emerald-500)' : 'var(--color-ruby-400)' }}>
+                        <p className="text-xs font-bold" style={{ color: match.isWinner ? 'var(--color-good)' : 'var(--color-bad)' }}>
                           {match.isWinner ? 'Won' : 'Lost'}
                         </p>
                         {match.myScore != null && (

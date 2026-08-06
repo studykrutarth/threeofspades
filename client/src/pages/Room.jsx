@@ -14,7 +14,19 @@ import {
   isRedSuit
 } from '../lib/cards';
 
-const SUIT_COLORS = { S: '#e2e8f0', H: '#ef4444', D: '#ef4444', C: '#e2e8f0' };
+const SUIT_COLORS = { S: '#e8edf5', H: '#e05c4b', D: '#e05c4b', C: '#e8edf5' };
+
+// Seat identity is carried by colour first and name second, so a player is
+// recognisable at a glance from their token, plate and standings row alike.
+// Indexed by seat order, which is stable for the life of a match.
+const SEAT_COLORS = [
+  'var(--color-seat-1)', 'var(--color-seat-2)', 'var(--color-seat-3)',
+  'var(--color-seat-4)', 'var(--color-seat-5)', 'var(--color-seat-6)'
+];
+const seatColor = (players, playerId) => {
+  const idx = players.findIndex(p => p.id === playerId);
+  return SEAT_COLORS[idx % SEAT_COLORS.length] || 'var(--color-ink-dim)';
+};
 
 const PHASE_LABELS = {
   LOBBY: 'Waiting for players',
@@ -27,15 +39,15 @@ const PHASE_LABELS = {
 };
 
 const ROLE_STYLES = {
-  bidder: { label: 'Bid Winner', color: 'var(--color-gold-400)', bg: 'rgba(212,168,67,0.15)' },
-  partner: { label: 'Hidden Partner', color: 'var(--color-emerald-500)', bg: 'rgba(16,185,129,0.15)' },
-  opponent: { label: 'Opponent', color: 'var(--color-ruby-400)', bg: 'rgba(239,71,111,0.15)' }
+  bidder: { label: 'Bid Winner', color: 'var(--color-warn)', bg: 'rgba(232,163,61,0.15)' },
+  partner: { label: 'Hidden Partner', color: 'var(--color-good)', bg: 'rgba(70,178,107,0.15)' },
+  opponent: { label: 'Opponent', color: 'var(--color-bad)', bg: 'rgba(224,92,75,0.15)' }
 };
 
 export default function Room() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { gameState, joinRoom, startMatch, placeBid, selectTrump, selectPartners, playCard } = useGame();
+  const { gameState, joinRoom, startMatch, addBots, removeBot, placeBid, selectTrump, selectPartners, playCard } = useGame();
   const { profile, loading } = useAuth();
   const [bidAmount, setBidAmount] = useState('');
 
@@ -55,7 +67,7 @@ export default function Room() {
     return (
       <div className="flex flex-col items-center justify-center gap-4">
         <div className="w-16 h-16 rounded-full animate-spin-slow"
-             style={{ border: '3px solid rgba(255,255,255,0.08)', borderTopColor: 'var(--color-gold-500)' }} />
+             style={{ border: '3px solid rgba(255,255,255,0.08)', borderTopColor: 'var(--color-warn)' }} />
         <p className="text-sm opacity-40">Connecting to room…</p>
       </div>
     );
@@ -133,49 +145,48 @@ export default function Room() {
   // ─── Header ───
   const renderHeader = () => (
     <div className="flex flex-wrap items-center justify-center gap-2 px-4 py-2 shrink-0">
-      <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg"
-           style={{ background: 'rgba(212,168,67,0.1)', border: '1px solid rgba(212,168,67,0.2)' }}>
-        <span className="text-[0.6rem] font-semibold uppercase tracking-widest opacity-50">Room</span>
-        <span className="text-base font-bold tracking-widest" style={{ color: 'var(--color-gold-400)' }}>{id}</span>
+      <div className="chip flex items-center gap-2 px-3 py-1.5">
+        <span className="label text-[0.6rem] font-semibold uppercase tracking-widest">Room</span>
+        <span className="text-base font-bold tracking-widest" style={{ color: 'var(--color-warn)', fontFamily: 'var(--font-heading)' }}>{id}</span>
       </div>
 
-      <div className="px-3 py-1.5 rounded-lg glass-panel-light">
-        <span className="text-xs font-semibold" style={{ color: 'var(--color-gold-300)' }}>
+      <div className="chip px-3 py-1.5" style={{ '--chip-accent': 'rgba(255,255,255,0.25)' }}>
+        <span className="text-xs font-semibold" style={{ color: 'var(--color-warn)' }}>
           {PHASE_LABELS[phase] || phase}
         </span>
       </div>
 
       {trump && (
-        <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg"
-             style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)' }}>
-          <span className="text-[0.6rem] font-semibold uppercase tracking-widest opacity-50">Trump</span>
+        <div className="chip flex items-center gap-2 px-3 py-1.5"
+             style={{ '--chip-accent': SUIT_COLORS[trump] }}>
+          <span className="label text-[0.6rem] font-semibold uppercase tracking-widest">Trump</span>
           <span className="text-lg leading-none" style={{ color: SUIT_COLORS[trump] }}>{SUIT_SYMBOLS[trump]}</span>
           <span className="text-xs font-semibold opacity-70">{SUIT_NAMES[trump]}</span>
         </div>
       )}
 
       {phase === 'TRICKS' && (
-        <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg glass-panel-light">
-          <span className="text-[0.6rem] font-semibold uppercase tracking-widest opacity-50">Trick</span>
+        <div className="chip flex items-center gap-2 px-3 py-1.5"
+             style={{ '--chip-accent': 'rgba(255,255,255,0.25)' }}>
+          <span className="label text-[0.6rem] font-semibold uppercase tracking-widest">Trick</span>
           <span className="text-base font-bold text-white">{trickNumber}/{totalTricks}</span>
         </div>
       )}
 
       {bidWinnerId && phase !== 'BIDDING' && (
-        <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg"
-             style={{ background: 'rgba(212,168,67,0.1)', border: '1px solid rgba(212,168,67,0.2)' }}>
-          <span className="text-[0.6rem] font-semibold uppercase tracking-widest opacity-50">Contract</span>
-          <span className="text-xs font-bold" style={{ color: 'var(--color-gold-400)' }}>
+        <div className="chip flex items-center gap-2 px-3 py-1.5">
+          <span className="label text-[0.6rem] font-semibold uppercase tracking-widest">Contract</span>
+          <span className="text-xs font-bold" style={{ color: 'var(--color-warn)' }}>
             {nameOf(bidWinnerId)} · {highestBid}
           </span>
         </div>
       )}
 
       {phase === 'TRICKS' && bidWinnerId && (
-        <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg"
-             style={{ background: 'rgba(16,185,129,0.1)', border: '1px solid rgba(16,185,129,0.25)' }}>
-          <span className="text-[0.6rem] font-semibold uppercase tracking-widest opacity-50">Bid team</span>
-          <span className="text-base font-bold" style={{ color: 'var(--color-emerald-500)' }}>
+        <div className="chip flex items-center gap-2 px-3 py-1.5"
+             style={{ '--chip-accent': 'var(--color-good)' }}>
+          <span className="label text-[0.6rem] font-semibold uppercase tracking-widest">Bid team</span>
+          <span className="text-base font-bold" style={{ color: 'var(--color-good)' }}>
             {confirmedTeamPoints}
           </span>
           <span className="text-xs opacity-40">/ {highestBid}</span>
@@ -184,8 +195,8 @@ export default function Room() {
 
       {/* Called cards live in the sidebar on wide screens; keep them visible here otherwise */}
       {partnerCardIds.length > 0 && (
-        <div className="lg:hidden flex items-center gap-2 px-3 py-1.5 rounded-lg glass-panel-light">
-          <span className="text-[0.6rem] font-semibold uppercase tracking-widest opacity-50">Called</span>
+        <div className="chip lg:hidden flex items-center gap-2 px-3 py-1.5">
+          <span className="label text-[0.6rem] font-semibold uppercase tracking-widest">Called</span>
           {partnerCardIds.map(cardId => {
             const card = parseCardId(cardId);
             const isPlayed = playedCardIds.has(cardId);
@@ -212,18 +223,18 @@ export default function Room() {
       TRICKS: 'to play'
     }[phase] || '';
 
+    // Bare pill — the layout puts this and the private notice on one shared row
+    // so the felt keeps the vertical space two stacked banners would eat.
     return (
-      <div className="flex justify-center px-4 pb-2 shrink-0">
-        <div className={`flex items-center gap-2 px-4 py-1.5 rounded-full text-sm font-bold ${isMyTurn ? 'animate-pulse-glow' : ''}`}
-             style={{
-               background: isMyTurn ? 'linear-gradient(135deg, var(--color-gold-500), #c4952e)' : 'rgba(255,255,255,0.06)',
-               color: isMyTurn ? 'var(--color-felt-900)' : '#94a3b8',
-               border: isMyTurn ? 'none' : '1px solid rgba(255,255,255,0.1)'
-             }}>
-          <span className="w-2 h-2 rounded-full"
-                style={{ background: isMyTurn ? 'var(--color-felt-900)' : 'var(--color-gold-400)' }} />
-          {isMyTurn ? `Your turn ${actionWord}` : `${nameOf(currentTurnPlayerId)}'s turn ${actionWord}…`}
-        </div>
+      <div className={`flex items-center gap-2 px-4 py-1.5 rounded-full text-sm font-bold ${isMyTurn ? 'animate-pulse-soft' : ''}`}
+           style={{
+             background: isMyTurn ? 'var(--color-warn)' : 'rgba(255,255,255,0.06)',
+             color: isMyTurn ? 'var(--color-bg)' : '#94a3b8',
+             border: isMyTurn ? 'none' : '1px solid rgba(255,255,255,0.1)'
+           }}>
+        <span className="w-2 h-2 rounded-full"
+              style={{ background: isMyTurn ? 'var(--color-bg)' : 'var(--color-warn)' }} />
+        {isMyTurn ? `Your turn ${actionWord}` : `${nameOf(currentTurnPlayerId)}'s turn ${actionWord}…`}
       </div>
     );
   };
@@ -234,35 +245,141 @@ export default function Room() {
     const role = ROLE_STYLES[myRole];
 
     return (
-      <div className="flex justify-center px-4 pb-2 shrink-0">
-        <div className="flex items-center gap-3 px-4 py-2 rounded-lg max-w-2xl"
-             style={{ background: role?.bg || 'rgba(255,255,255,0.05)', border: `1px solid ${role?.color || 'rgba(255,255,255,0.1)'}33` }}>
-          {role && (
-            <span className="text-[0.6rem] font-extrabold uppercase tracking-widest px-2 py-1 rounded shrink-0"
-                  style={{ background: role.color, color: 'var(--color-felt-900)' }}>
-              You are {role.label}
-            </span>
-          )}
-          {privateMessage && (
-            <span className="text-xs" style={{ color: role?.color || '#e2e8f0' }}>
-              {privateMessage.message}
-            </span>
-          )}
-        </div>
+      <div className="flex items-center gap-3 px-4 py-1.5 rounded-lg max-w-2xl"
+           style={{ background: role?.bg || 'rgba(255,255,255,0.05)', border: `1px solid ${role?.color || 'rgba(255,255,255,0.1)'}33` }}>
+        {role && (
+          <span className="text-[0.6rem] font-extrabold uppercase tracking-widest px-2 py-1 rounded shrink-0"
+                style={{ background: role.color, color: 'var(--color-bg)' }}>
+            You are {role.label}
+          </span>
+        )}
+        {privateMessage && (
+          <span className="text-xs" style={{ color: role?.color || '#e2e8f0' }}>
+            {privateMessage.message}
+          </span>
+        )}
       </div>
     );
   };
 
-  // ─── Sidebar: called cards, standings, last trick ───
+  // ─── Rail ───
+  // On lg+ this is the whole HUD: room, phase, turn, role, contract, progress,
+  // called cards, standings, last trick. Nothing sits above the felt, so the
+  // table gets the full height. Narrow screens have no rail and fall back to
+  // the compact top strip (renderHeader / renderTurnBanner) instead.
   const renderSidebar = () => {
     if (phase === 'LOBBY') return null;
 
+    const role = ROLE_STYLES[myRole];
+    const showTurn = currentTurnPlayerId && phase !== 'MATCH_END';
+    const actionWord = {
+      BIDDING: 'to bid',
+      TRUMP_SELECTION: 'to choose trump',
+      PARTNER_SELECTION: 'to call partners',
+      TRICKS: 'to play'
+    }[phase] || '';
+
     return (
-      <aside className="hidden lg:block w-64 shrink-0 space-y-3 overflow-y-auto px-3 pb-3">
+      <aside className="hidden lg:flex flex-col w-72 shrink-0 gap-3 overflow-y-auto px-3 pb-3">
+        {/* Room + phase */}
+        <div className="panel px-3 py-2.5">
+          <div className="flex items-baseline justify-between gap-2">
+            <span className="label text-[0.6rem] font-semibold uppercase tracking-widest">Room</span>
+            <span className="text-xl font-bold tracking-widest leading-none"
+                  style={{ color: 'var(--color-warn)', fontFamily: 'var(--font-heading)' }}>{id}</span>
+          </div>
+          <p className="text-xs font-semibold mt-1.5" style={{ color: 'var(--color-warn)' }}>
+            {PHASE_LABELS[phase] || phase}
+          </p>
+        </div>
+
+        {/* Whose turn. The felt already pulses the active seat, so this is the
+            wording for it rather than the only cue that your turn came up. */}
+        {showTurn && (
+          <div className={`px-3 py-2.5 rounded-lg ${isMyTurn ? 'animate-pulse-soft' : ''}`}
+               style={{
+                 background: isMyTurn
+                   ? 'var(--color-warn)'
+                   : 'rgba(0,0,0,0.28)',
+                 border: isMyTurn ? '1px solid rgba(0,0,0,0.25)' : '1px solid rgba(255,255,255,0.08)',
+                 color: isMyTurn ? 'var(--color-bg)' : '#a8b6c8'
+               }}>
+            <div className="flex items-center gap-2">
+              <span className="w-2 h-2 rounded-full shrink-0"
+                    style={{ background: isMyTurn ? 'var(--color-bg)' : 'var(--color-warn)' }} />
+              <span className="text-sm font-bold leading-tight">
+                {isMyTurn ? `Your turn ${actionWord}` : `${nameOf(currentTurnPlayerId)}'s turn ${actionWord}…`}
+              </span>
+            </div>
+          </div>
+        )}
+
+        {/* Your role and the private partner message */}
+        {(role || privateMessage) && (
+          <div className="px-3 py-2.5 rounded-lg"
+               style={{ background: role?.bg || 'rgba(255,255,255,0.05)', border: `1px solid ${role?.color || 'rgba(255,255,255,0.1)'}33` }}>
+            {role && (
+              <span className="inline-block text-[0.6rem] font-extrabold uppercase tracking-widest px-2 py-1 rounded"
+                    style={{ background: role.color, color: 'var(--color-bg)' }}>
+                You are {role.label}
+              </span>
+            )}
+            {privateMessage && (
+              <p className="text-xs mt-2 leading-snug" style={{ color: role?.color || '#e2e8f0' }}>
+                {privateMessage.message}
+              </p>
+            )}
+          </div>
+        )}
+
+        {/* Contract. Skipped during bidding — the floating bid panel is already
+            showing the running high bid, and this would just echo it. */}
+        {phase !== 'BIDDING' && (trump || bidWinnerId) && (
+          <div className="panel p-3">
+            <p className="label text-[0.6rem] font-semibold uppercase tracking-widest mb-2">Contract</p>
+            <div className="grid grid-cols-2 gap-2">
+              {trump && (
+                <div className="panel-inset px-2 py-1.5">
+                  <p className="label text-[0.55rem] uppercase tracking-wider leading-tight">Trump</p>
+                  <p className="text-sm font-bold leading-tight flex items-center gap-1" style={{ color: SUIT_COLORS[trump] }}>
+                    <span className="text-base leading-none">{SUIT_SYMBOLS[trump]}</span>
+                    {SUIT_NAMES[trump]}
+                  </p>
+                </div>
+              )}
+              {phase === 'TRICKS' && (
+                <div className="panel-inset px-2 py-1.5">
+                  <p className="label text-[0.55rem] uppercase tracking-wider leading-tight">Trick</p>
+                  <p className="text-sm font-bold text-white leading-tight" style={{ fontFamily: 'var(--font-heading)' }}>
+                    {trickNumber}/{totalTricks}
+                  </p>
+                </div>
+              )}
+              {leadSuit && phase === 'TRICKS' && (
+                <div className="panel-inset px-2 py-1.5 col-span-2">
+                  <p className="label text-[0.55rem] uppercase tracking-wider leading-tight">Lead suit</p>
+                  <p className="text-sm font-bold leading-tight flex items-center gap-1" style={{ color: SUIT_COLORS[leadSuit] }}>
+                    <span className="text-base leading-none">{SUIT_SYMBOLS[leadSuit]}</span>
+                    {SUIT_NAMES[leadSuit]}
+                  </p>
+                </div>
+              )}
+              {bidWinnerId && (
+                <div className="panel-inset px-2 py-1.5 col-span-2">
+                  <p className="label text-[0.55rem] uppercase tracking-wider leading-tight">Bid winner</p>
+                  <p className="text-sm font-bold leading-tight truncate" style={{ color: 'var(--color-warn)' }}>
+                    {nameOf(bidWinnerId)} · {highestBid}
+                  </p>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
         {/* Called partner cards */}
         {partnerCardIds.length > 0 && (
-          <div className="glass-panel p-3">
-            <p className="text-[0.6rem] font-semibold uppercase tracking-widest opacity-40 mb-2">Called Cards</p>
+          <div className="panel p-3">
+            <p className="label text-[0.6rem] font-semibold uppercase tracking-widest mb-2">Called Cards</p>
             <div className="flex gap-2">
               {partnerCardIds.map(cardId => {
                 const card = parseCardId(cardId);
@@ -271,7 +388,7 @@ export default function Room() {
                   <div key={cardId} className="flex flex-col items-center gap-1">
                     <PlayingCard card={card} size="xs" isPlayable={false} dimmed={isPlayed} />
                     <span className="text-[0.5rem] uppercase tracking-wide font-semibold"
-                          style={{ color: isPlayed ? 'var(--color-emerald-500)' : 'rgba(255,255,255,0.35)' }}>
+                          style={{ color: isPlayed ? 'var(--color-good)' : 'rgba(255,255,255,0.35)' }}>
                       {isPlayed ? 'Revealed' : 'Hidden'}
                     </span>
                   </div>
@@ -286,11 +403,11 @@ export default function Room() {
 
         {/* How close the bid team is, counting only what the table can see */}
         {phase === 'TRICKS' && bidWinnerId && (
-          <div className="glass-panel p-3">
+          <div className="panel p-3">
             <div className="flex items-baseline justify-between mb-2">
-              <p className="text-[0.6rem] font-semibold uppercase tracking-widest opacity-40">Bid Progress</p>
+              <p className="label text-[0.6rem] font-semibold uppercase tracking-widest">Bid Progress</p>
               <p className="text-sm font-bold">
-                <span style={{ color: 'var(--color-emerald-500)' }}>{confirmedTeamPoints}</span>
+                <span style={{ color: 'var(--color-good)' }}>{confirmedTeamPoints}</span>
                 <span className="opacity-40"> / {highestBid}</span>
               </p>
             </div>
@@ -298,44 +415,47 @@ export default function Room() {
               <div className="h-full rounded-full transition-all duration-300"
                    style={{
                      width: `${Math.min(100, highestBid ? (confirmedTeamPoints / highestBid) * 100 : 0)}%`,
-                     background: 'linear-gradient(90deg, var(--color-emerald-600), var(--color-emerald-500))'
+                     background: 'var(--color-good)'
                    }} />
             </div>
             <p className="text-[0.6rem] opacity-35 mt-2 leading-snug">
-              Counts the bid winner and revealed partners only. A hidden partner&apos;s
-              points stay off this tally until they play a called card. The match
-              ends the moment this reaches {highestBid}.
+              Bid winner and revealed partners only — a hidden partner&apos;s points
+              stay off until they play a called card. Ends at {highestBid}.
             </p>
           </div>
         )}
 
         {/* Standings + points taken this round */}
-        <div className="glass-panel p-3">
-          <p className="text-[0.6rem] font-semibold uppercase tracking-widest opacity-40 mb-2">
+        <div className="panel p-3">
+          <p className="label text-[0.6rem] font-semibold uppercase tracking-widest mb-2">
             Standings {phase === 'TRICKS' && <span className="opacity-60">· pts this round</span>}
           </p>
           <div className="space-y-1">
             {sortedPlayers.map(player => (
-              <div key={player.id} className="flex items-center justify-between gap-2 px-2 py-1.5 rounded"
-                   style={{ background: player.id === playerId ? 'rgba(212,168,67,0.1)' : 'transparent' }}>
+              <div key={player.id} className="flex items-center justify-between gap-2 px-2 py-1.5 rounded-md"
+                   style={{ background: player.id === playerId ? 'rgba(255,255,255,0.07)' : 'transparent' }}>
                 <div className="flex items-center gap-1.5 min-w-0">
-                  <span className="text-xs font-semibold truncate"
-                        style={{ color: player.id === playerId ? 'var(--color-gold-300)' : '#e2e8f0' }}>
+                  {/* Same colour that rings this player's seat on the board, so
+                      a standings row and a seat are recognisably one person. */}
+                  <span className="w-2.5 h-2.5 rounded-full shrink-0"
+                        style={{ background: seatColor(players, player.id) }} />
+                  <span className="text-xs font-bold truncate"
+                        style={{ color: player.id === playerId ? 'var(--color-ink)' : '#c3cddd' }}>
                     {player.name}
                   </span>
                   {player.id === bidWinnerId && <span className="text-[0.6rem]" title="Bid winner">👑</span>}
-                  {player.isRevealed && <span className="text-[0.6rem]" style={{ color: 'var(--color-emerald-500)' }}>★</span>}
+                  {player.isRevealed && <span className="text-[0.6rem]" style={{ color: 'var(--color-good)' }}>★</span>}
                   {player.isBot && <span className="text-[0.5rem] opacity-40 uppercase">bot</span>}
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
                   {phase === 'TRICKS' && player.pointsTaken > 0 && (
                     <span className="text-[0.6rem] font-bold px-1.5 py-0.5 rounded"
-                          style={{ background: 'rgba(16,185,129,0.15)', color: 'var(--color-emerald-500)' }}>
+                          style={{ background: 'rgba(70,178,107,0.15)', color: 'var(--color-good)' }}>
                       +{player.pointsTaken}
                     </span>
                   )}
                   <span className="text-xs font-bold"
-                        style={{ color: player.score >= 0 ? 'var(--color-emerald-500)' : 'var(--color-ruby-400)' }}>
+                        style={{ color: player.score >= 0 ? 'var(--color-good)' : 'var(--color-bad)' }}>
                     {player.score >= 0 ? '+' : ''}{player.score}
                   </span>
                 </div>
@@ -346,8 +466,8 @@ export default function Room() {
 
         {/* Last completed trick */}
         {lastTrick && phase === 'TRICKS' && (
-          <div className="glass-panel p-3">
-            <p className="text-[0.6rem] font-semibold uppercase tracking-widest opacity-40 mb-2">Last Trick</p>
+          <div className="panel p-3">
+            <p className="label text-[0.6rem] font-semibold uppercase tracking-widest mb-2">Last Trick</p>
             <div className="flex gap-1 flex-wrap mb-2">
               {lastTrick.cards.map((entry, i) => (
                 <PlayingCard key={i} card={entry.card} size="xs" isPlayable={false}
@@ -355,9 +475,9 @@ export default function Room() {
               ))}
             </div>
             <p className="text-[0.65rem]">
-              <span className="font-bold" style={{ color: 'var(--color-emerald-500)' }}>{nameOf(lastTrick.winnerId)}</span>
+              <span className="font-bold" style={{ color: 'var(--color-good)' }}>{nameOf(lastTrick.winnerId)}</span>
               <span className="opacity-50"> took it · </span>
-              <span className="font-bold" style={{ color: 'var(--color-gold-400)' }}>{getTrickPoints(lastTrick.cards)} pts</span>
+              <span className="font-bold" style={{ color: 'var(--color-warn)' }}>{getTrickPoints(lastTrick.cards)} pts</span>
             </p>
           </div>
         )}
@@ -369,42 +489,34 @@ export default function Room() {
   const renderBiddingPanel = () => {
     if (phase !== 'BIDDING') return null;
 
+    // Kept deliberately short. The board only has ~250px of clear space below
+    // the top-centre seat, so this panel must fit inside that or it either
+    // covers a player or gets clipped by the hand tray.
     return (
-      <div className="glass-panel p-4 w-full max-w-xl mx-auto">
-        <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
-          <div>
-            <span className="text-[0.6rem] uppercase tracking-widest opacity-40 font-semibold">Highest Bid</span>
-            <div className="flex items-baseline gap-2">
-              <span className="text-2xl font-extrabold"
-                    style={{ color: highestBid > 0 ? 'var(--color-gold-400)' : 'rgba(255,255,255,0.2)' }}>
-                {highestBid > 0 ? highestBid : '—'}
-              </span>
-              {bidWinnerId && (
-                <span className="text-xs opacity-60">by {nameOf(bidWinnerId)}</span>
-              )}
-            </div>
+      <div className="panel p-3 w-full max-w-xl mx-auto">
+        <div className="flex items-center justify-between gap-3 mb-2">
+          <div className="flex items-baseline gap-2 min-w-0">
+            <span className="label text-[0.6rem] uppercase">Bid</span>
+            <span className="text-xl font-extrabold leading-none"
+                  style={{ color: highestBid > 0 ? 'var(--color-warn)' : 'rgba(255,255,255,0.25)' }}>
+              {highestBid > 0 ? highestBid : '—'}
+            </span>
+            {bidWinnerId && <span className="text-xs opacity-60 truncate">by {nameOf(bidWinnerId)}</span>}
           </div>
-          <div className="text-right">
-            <span className="text-[0.6rem] uppercase tracking-widest opacity-40 font-semibold">Min next bid</span>
-            <p className="text-lg font-bold text-white">{minimumBid}</p>
+          <div className="flex items-baseline gap-2 shrink-0">
+            <span className="label text-[0.6rem] uppercase">Min</span>
+            <span className="text-lg font-extrabold text-white leading-none">{minimumBid}</span>
           </div>
         </div>
 
-        {passedPlayers.length > 0 && (
-          <p className="text-[0.65rem] opacity-45 mb-3">
-            Passed: {passedPlayers.map(nameOf).join(', ')}
-            <span className="opacity-70"> (may re-enter with a higher bid)</span>
-          </p>
-        )}
-
         <fieldset disabled={!isMyTurn} className={isMyTurn ? '' : 'opacity-40 pointer-events-none'}>
-          <div className="flex flex-wrap gap-2 items-end mb-3">
+          <div className="flex flex-wrap gap-2 items-center mb-2">
             <input
               type="number"
               value={bidAmount}
               onChange={e => setBidAmount(e.target.value)}
               placeholder={`${minimumBid} or more`}
-              className="input-field text-sm flex-grow"
+              className="input-field text-sm flex-grow py-2"
               min={minimumBid}
               max="310"
               step="5"
@@ -417,7 +529,7 @@ export default function Room() {
                 setBidAmount('');
               }}
               disabled={!Number.isFinite(parseInt(bidAmount, 10)) || parseInt(bidAmount, 10) < minimumBid}
-              className="btn-gold px-4 py-2 text-sm disabled:opacity-30 disabled:cursor-not-allowed"
+              className="btn-accent px-4 py-2 text-sm disabled:opacity-30 disabled:cursor-not-allowed"
             >
               Bid
             </button>
@@ -430,17 +542,18 @@ export default function Room() {
             {[50, 100, 150, 200, 250, 310].map(val => (
               <button key={val} onClick={() => { placeBid(val); setBidAmount(''); }}
                       disabled={val < minimumBid}
-                      className="px-2 py-1 rounded text-xs font-semibold transition-all disabled:opacity-20 disabled:cursor-not-allowed"
-                      style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.08)' }}>
+                      className="btn-ghost px-3 py-1 text-xs disabled:opacity-20 disabled:cursor-not-allowed">
                 {val}
               </button>
             ))}
           </div>
         </fieldset>
 
-        <p className="text-[0.6rem] opacity-35 mt-3 leading-snug">
-          310 points are in play. Win at least your bid with your hidden partners to score {highestBid > 0 ? highestBid * 2 : '2×'} — miss it and you lose your bid.
-        </p>
+        {passedPlayers.length > 0 && (
+          <p className="text-[0.6rem] opacity-40 mt-2 truncate">
+            Passed: {passedPlayers.map(nameOf).join(', ')} — may re-enter higher
+          </p>
+        )}
       </div>
     );
   };
@@ -451,17 +564,17 @@ export default function Room() {
 
     if (playerId !== bidWinnerId) {
       return (
-        <div className="glass-panel p-5 text-center max-w-md mx-auto">
+        <div className="panel p-5 text-center max-w-md mx-auto">
           <p className="text-sm opacity-60">
-            <span className="font-bold" style={{ color: 'var(--color-gold-400)' }}>{nameOf(bidWinnerId)}</span> won the bid at{' '}
-            <span className="font-bold" style={{ color: 'var(--color-gold-400)' }}>{highestBid}</span> and is choosing trump…
+            <span className="font-bold" style={{ color: 'var(--color-warn)' }}>{nameOf(bidWinnerId)}</span> won the bid at{' '}
+            <span className="font-bold" style={{ color: 'var(--color-warn)' }}>{highestBid}</span> and is choosing trump…
           </p>
         </div>
       );
     }
 
     return (
-      <div className="glass-panel p-5 max-w-md mx-auto">
+      <div className="panel p-5 max-w-md mx-auto">
         <h3 className="text-base font-bold text-white mb-1" style={{ fontFamily: 'var(--font-heading)' }}>Choose Trump Suit</h3>
         <p className="text-xs opacity-40 mb-4">You won the bid at {highestBid}. Trump beats every other suit.</p>
         <div className="grid grid-cols-4 gap-2">
@@ -470,11 +583,15 @@ export default function Room() {
             return (
               <button key={suit}
                       onClick={() => selectTrump(suit)}
-                      className="flex flex-col items-center gap-1 p-3 rounded-lg transition-all duration-200 hover:scale-105"
-                      style={{ background: isRedSuit(suit) ? 'rgba(239,68,68,0.1)' : 'rgba(226,232,240,0.1)', border: '1px solid rgba(255,255,255,0.08)' }}>
-                <span className="text-3xl" style={{ color: SUIT_COLORS[suit] }}>{SUIT_SYMBOLS[suit]}</span>
-                <span className="text-[0.65rem] font-semibold opacity-60">{SUIT_NAMES[suit]}</span>
-                <span className="text-[0.6rem] font-bold" style={{ color: 'var(--color-gold-400)' }}>{inHand} in hand</span>
+                      className="btn-ghost flex flex-col items-center gap-1 p-3"
+                      style={{
+                        background: isRedSuit(suit)
+                          ? 'rgba(224,92,75,0.14)'
+                          : 'rgba(255,255,255,0.08)'
+                      }}>
+                <span className="text-3xl leading-none" style={{ color: SUIT_COLORS[suit], textShadow: '0 2px 4px rgba(0,0,0,0.5)' }}>{SUIT_SYMBOLS[suit]}</span>
+                <span className="text-[0.65rem] font-semibold opacity-70">{SUIT_NAMES[suit]}</span>
+                <span className="text-[0.6rem] font-bold" style={{ color: 'var(--color-warn)' }}>{inHand} in hand</span>
               </button>
             );
           })}
@@ -489,9 +606,9 @@ export default function Room() {
 
     if (playerId !== bidWinnerId) {
       return (
-        <div className="glass-panel p-5 text-center max-w-md mx-auto">
+        <div className="panel p-5 text-center max-w-md mx-auto">
           <p className="text-sm opacity-60">
-            <span className="font-bold" style={{ color: 'var(--color-gold-400)' }}>{nameOf(bidWinnerId)}</span> is calling two partner cards…
+            <span className="font-bold" style={{ color: 'var(--color-warn)' }}>{nameOf(bidWinnerId)}</span> is calling two partner cards…
           </p>
           <p className="text-xs opacity-35 mt-2">If you hold one, you&apos;ll be told privately.</p>
         </div>
@@ -517,36 +634,36 @@ export default function Room() {
 
     return (
       <div className="absolute inset-0 flex items-center justify-center bg-black/50 backdrop-blur-sm z-30 p-4">
-        <div className="glass-panel p-6 w-full max-w-2xl animate-float-in max-h-full overflow-y-auto">
+        <div className="panel p-6 w-full max-w-2xl animate-float-in max-h-full overflow-y-auto">
           {resultSummary ? (
             <>
               <div className="flex items-start justify-between gap-4 mb-4">
                 <div>
-                  <p className="text-xs uppercase tracking-widest opacity-40 font-semibold">
+                  <p className="label text-xs uppercase tracking-widest font-semibold">
                     {resultSummary.endedEarly
                       ? `Called after ${resultSummary.tricksPlayed} of ${resultSummary.totalTricks} tricks`
                       : 'All cards played'}
                   </p>
-                  <h3 className="text-2xl font-extrabold text-white mt-1" style={{ fontFamily: 'var(--font-heading)' }}>
+                  <h3 className="text-2xl font-extrabold text-white mt-1 tracking-wide" style={{ fontFamily: 'var(--font-heading)', textShadow: '0 2px 6px rgba(0,0,0,0.6)' }}>
                     {resultSummary.isSuccess ? 'Bid Team Made It' : 'Bid Team Fell Short'}
                   </h3>
                   <p className="text-xs opacity-50 mt-1">
                     {nameOf(resultSummary.bidWinnerId)} needed {resultSummary.bidAmount}, took {resultSummary.pointsCollected}
-                    <span style={{ color: diff >= 0 ? 'var(--color-emerald-500)' : 'var(--color-ruby-400)' }}>
+                    <span style={{ color: diff >= 0 ? 'var(--color-good)' : 'var(--color-bad)' }}>
                       {' '}({diff >= 0 ? '+' : ''}{diff})
                     </span>
                     <span className="opacity-60"> of 310</span>
                   </p>
                 </div>
                 <div className="text-right shrink-0">
-                  <p className="text-xs uppercase tracking-widest opacity-40 font-semibold">Bid</p>
-                  <p className="text-3xl font-extrabold" style={{ color: 'var(--color-gold-400)' }}>{resultSummary.bidAmount}</p>
+                  <p className="label text-xs uppercase tracking-widest font-semibold">Bid</p>
+                  <p className="text-3xl font-extrabold" style={{ color: 'var(--color-warn)', fontFamily: 'var(--font-heading)' }}>{resultSummary.bidAmount}</p>
                 </div>
               </div>
 
               {resultSummary.endedEarly && (
                 <p className="text-xs mb-4 px-3 py-2 rounded-lg leading-snug"
-                   style={{ background: 'rgba(16,185,129,0.1)', border: '1px solid rgba(16,185,129,0.25)', color: '#86efac' }}>
+                   style={{ background: 'rgba(70,178,107,0.1)', border: '1px solid rgba(70,178,107,0.25)', color: '#86efac' }}>
                   The bid winner and revealed partners had already taken {resultSummary.confirmedPoints} points,
                   so the result was settled with cards still in hand.
                 </p>
@@ -555,14 +672,14 @@ export default function Room() {
               {/* Where the bid team's points came from */}
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-5">
                 {[
-                  { label: 'Bid winner', value: resultSummary.bidderPoints, color: 'var(--color-gold-400)' },
-                  { label: 'Revealed partners', value: resultSummary.revealedPartnerPoints, color: 'var(--color-emerald-500)' },
+                  { label: 'Bid winner', value: resultSummary.bidderPoints, color: 'var(--color-warn)' },
+                  { label: 'Revealed partners', value: resultSummary.revealedPartnerPoints, color: 'var(--color-good)' },
                   { label: 'Hidden partners', value: resultSummary.hiddenPartnerPoints, color: '#c084fc' },
-                  { label: 'Opponents', value: resultSummary.opponentPoints, color: 'var(--color-ruby-400)' }
+                  { label: 'Opponents', value: resultSummary.opponentPoints, color: 'var(--color-bad)' }
                 ].map(cell => (
-                  <div key={cell.label} className="glass-panel-light p-2 text-center">
-                    <p className="text-[0.55rem] uppercase tracking-wider opacity-40 leading-tight">{cell.label}</p>
-                    <p className="text-lg font-extrabold" style={{ color: cell.color }}>{cell.value}</p>
+                  <div key={cell.label} className="panel-inset p-2 text-center">
+                    <p className="label text-[0.55rem] uppercase tracking-wider leading-tight">{cell.label}</p>
+                    <p className="text-lg font-extrabold" style={{ color: cell.color, fontFamily: 'var(--font-heading)' }}>{cell.value}</p>
                   </div>
                 ))}
               </div>
@@ -577,7 +694,7 @@ export default function Room() {
                     <div key={player.id} className="flex items-center justify-between gap-3 px-4 py-3 border-b border-white/5 last:border-b-0 bg-black/10">
                       <div className="flex items-center gap-3 min-w-0">
                         <span className="w-7 h-7 shrink-0 rounded-full flex items-center justify-center text-xs font-bold"
-                              style={{ background: isWinner ? 'var(--color-gold-500)' : 'rgba(255,255,255,0.08)', color: isWinner ? 'var(--color-felt-900)' : 'white' }}>
+                              style={{ background: isWinner ? 'var(--color-warn)' : 'rgba(255,255,255,0.08)', color: isWinner ? 'var(--color-bg)' : 'white' }}>
                           {idx + 1}
                         </span>
                         <div className="min-w-0">
@@ -591,7 +708,7 @@ export default function Room() {
                         </div>
                       </div>
                       <div className="text-right shrink-0">
-                        <p className="font-extrabold" style={{ color: delta > 0 ? 'var(--color-emerald-500)' : delta < 0 ? 'var(--color-ruby-400)' : 'rgba(255,255,255,0.3)' }}>
+                        <p className="font-extrabold" style={{ color: delta > 0 ? 'var(--color-good)' : delta < 0 ? 'var(--color-bad)' : 'rgba(255,255,255,0.3)' }}>
                           {delta > 0 ? '+' : ''}{delta}
                         </p>
                         <p className="text-xs opacity-40">Final {player.score}</p>
@@ -603,7 +720,7 @@ export default function Room() {
 
               <p className="text-center text-sm mb-4">
                 <span className="opacity-50">Winner{matchWinners.length > 1 ? 's' : ''}: </span>
-                <span className="font-bold" style={{ color: 'var(--color-gold-400)' }}>{winnerText}</span>
+                <span className="font-bold" style={{ color: 'var(--color-warn)' }}>{winnerText}</span>
               </p>
             </>
           ) : (
@@ -613,7 +730,7 @@ export default function Room() {
           <div className="flex gap-3">
             <button onClick={() => navigate('/lobby')} className="btn-ghost flex-1 py-3">Back to Lobby</button>
             {canReplay && (
-              <button onClick={startMatch} className="btn-gold flex-1 py-3">Play Again</button>
+              <button onClick={startMatch} className="btn-accent flex-1 py-3">Play Again</button>
             )}
           </div>
         </div>
@@ -623,8 +740,7 @@ export default function Room() {
 
   // ─── Table ───
   const renderTable = () => (
-    <div className="flex-1 min-h-0 flex flex-col w-full max-w-[78rem] mx-auto m-3 rounded-[2rem] overflow-hidden"
-         style={{ background: 'radial-gradient(ellipse at center, #2d8659 0%, #1a5f3f 75%)', border: '6px solid var(--color-gold-500)' }}>
+    <div className="table-felt flex-1 min-h-0 flex flex-col w-full max-w-[70rem] mx-auto m-3 rounded-2xl overflow-hidden">
 
       {/* Seats + trick live up top; the hand occupies the felt below them */}
       <div className="relative flex-1 min-h-[13rem]">
@@ -633,32 +749,34 @@ export default function Room() {
       <div className="absolute inset-x-0 bottom-0 top-[38%] flex flex-col items-center justify-center gap-2 pointer-events-none px-4 pb-3">
         {currentTrick?.cards?.length > 0 ? (
           <>
-            {leadSuit && (
-              <span className="text-[0.6rem] uppercase tracking-widest font-semibold px-2 py-0.5 rounded"
-                    style={{ background: 'rgba(0,0,0,0.35)', color: SUIT_COLORS[leadSuit] }}>
-                Lead {SUIT_SYMBOLS[leadSuit]}
-              </span>
-            )}
+            {/* The lead suit is a rail readout, not a felt badge — up here it
+                collided with the top-centre seat plate, and the hand bar
+                already spells out "must follow" for the player on turn. */}
             <div className="flex gap-3 justify-center flex-wrap max-w-md">
               {currentTrick.cards.map((play, idx) => (
                 <div key={idx} className="flex flex-col items-center gap-1">
                   <PlayingCard card={play.card} size="sm" isPlayable={false} />
                   <span className="text-[0.6rem] font-semibold px-2 py-0.5 rounded"
-                        style={{ background: 'rgba(0,0,0,0.4)', color: play.playerId === playerId ? 'var(--color-gold-300)' : '#e2e8f0' }}>
+                        style={{ background: 'rgba(0,0,0,0.4)', color: play.playerId === playerId ? 'var(--color-warn)' : '#e2e8f0' }}>
                     {nameOf(play.playerId)}
                   </span>
                 </div>
               ))}
             </div>
             <span className="text-[0.65rem] font-bold px-2 py-0.5 rounded"
-                  style={{ background: 'rgba(0,0,0,0.35)', color: 'var(--color-gold-400)' }}>
+                  style={{ background: 'rgba(0,0,0,0.35)', color: 'var(--color-warn)' }}>
               {getTrickPoints(currentTrick.cards)} pts on the table
             </span>
           </>
         ) : phase === 'TRICKS' ? (
-          <div className="text-center opacity-25">
-            <div className="text-3xl mb-1">♠ ♥ ♦ ♣</div>
-            <p className="text-[0.65rem] uppercase tracking-widest">
+          <div className="flex flex-col items-center justify-center gap-1 w-36 h-36 rounded-full"
+               style={{
+                 border: '2px solid rgba(255,255,255,0.09)',
+                 boxShadow: 'inset 0 0 30px rgba(0,0,0,0.35)',
+                 color: 'rgba(255,255,255,0.3)'
+               }}>
+            <div className="text-2xl tracking-widest">♠♥♦♣</div>
+            <p className="text-[0.6rem] uppercase tracking-widest font-semibold px-2 text-center">
               {isMyTurn ? 'Lead a card' : `${nameOf(currentTurnPlayerId)} leads`}
             </p>
           </div>
@@ -669,7 +787,7 @@ export default function Room() {
       {opponents.map((player, i) => {
         const pos = seatPosition(i);
         const isActive = player.id === currentTurnPlayerId;
-        const hue = (players.findIndex(p => p.id === player.id) * 67) + 340;
+        const color = seatColor(players, player.id);
         return (
           <div key={player.id}
                className="absolute text-center"
@@ -678,21 +796,24 @@ export default function Room() {
                  top: `calc(50% + ${pos.y}%)`,
                  transform: 'translate(-50%, -50%)'
                }}>
-            <div className={`rounded-lg px-1.5 py-1 transition-all ${isActive ? 'animate-pulse-glow' : ''}`}
+            {/* Flat plate. The seat colour rings the plate rather than tinting
+                it, so the active-turn highlight stays legible on every hue. */}
+            <div className={`rounded-xl px-1.5 py-1 transition-colors ${isActive ? 'animate-pulse-soft' : ''}`}
                  style={{
-                   background: 'rgba(0,0,0,0.55)',
-                   border: `2px solid ${isActive ? 'var(--color-gold-500)' : 'rgba(255,255,255,0.1)'}`
+                   background: 'rgba(12,18,28,0.72)',
+                   border: `2px solid ${isActive ? '#fff' : color}`,
+                   boxShadow: isActive ? `0 0 0 3px ${color}` : '0 2px 8px rgba(0,0,0,0.3)'
                  }}>
               {/* Identity on one line so the seat stays short enough to fit the felt */}
               <div className="flex items-center justify-center gap-1.5 px-0.5">
-                <div className="w-6 h-6 shrink-0 rounded-full flex items-center justify-center text-[0.6rem] font-bold text-white"
-                     style={{ background: `linear-gradient(135deg, hsl(${hue}, 70%, 45%), hsl(${hue + 20}, 60%, 35%))` }}>
+                <div className="w-6 h-6 shrink-0 rounded-full flex items-center justify-center text-[0.65rem] font-extrabold text-white"
+                     style={{ background: color }}>
                   {player.name?.charAt(0)?.toUpperCase()}
                 </div>
                 <div className="text-left leading-tight min-w-0">
                   <p className="text-[0.6rem] font-semibold truncate max-w-[5.5rem]">{player.name}</p>
                   <p className="text-[0.55rem] leading-tight">
-                    <span style={{ color: player.score >= 0 ? 'var(--color-emerald-500)' : 'var(--color-ruby-400)' }}>
+                    <span style={{ color: player.score >= 0 ? 'var(--color-good)' : 'var(--color-bad)' }}>
                       {player.score >= 0 ? '+' : ''}{player.score}
                     </span>
                     <span className="opacity-40"> · {player.handSize} cards</span>
@@ -700,19 +821,23 @@ export default function Room() {
                 </div>
                 {player.id === bidWinnerId && <span className="text-[0.6rem] shrink-0">👑</span>}
                 {player.isRevealed && (
-                  <span className="text-[0.6rem] font-bold shrink-0" style={{ color: 'var(--color-emerald-500)' }}>★</span>
+                  <span className="text-[0.6rem] font-bold shrink-0" style={{ color: 'var(--color-good)' }}>★</span>
                 )}
               </div>
 
               {/* Their hand, face down — big enough for the back art to read.
-                  Square box so the fan keeps one footprint whatever angle it sits at. */}
+                  The box must be square and at least as wide as the fan spans,
+                  or a seat rotated 90° spills its fan over the name plate. At
+                  -1.75rem overlap 5 cards span 108px, so 112px (w-28) holds it
+                  at any angle while keeping the plate short enough that the
+                  top-centre seat clears the felt edge. Keep these in step. */}
               {player.handSize > 0 && (
-                <div className="relative w-36 h-36 mx-auto" title={`${player.handSize} cards`}>
+                <div className="relative w-28 h-28 mx-auto" title={`${player.handSize} cards`}>
                   <div className="absolute top-1/2 left-1/2 flex"
                        style={{ transform: `translate(-50%, -50%) rotate(${pos.rotation}deg)` }}>
                     {Array.from({ length: Math.min(player.handSize, FANNED_BACKS) }).map((_, idx) => (
                       <div key={idx} className="shrink-0"
-                           style={idx === 0 ? undefined : { marginLeft: '-1.5rem' }}>
+                           style={idx === 0 ? undefined : { marginLeft: '-1.75rem' }}>
                         <PlayingCard size="xs" isPlayable={false} />
                       </div>
                     ))}
@@ -722,7 +847,7 @@ export default function Room() {
 
               <div className="flex items-center justify-center gap-1.5 leading-tight min-h-[0.85rem]">
                 {phase === 'TRICKS' && player.pointsTaken > 0 && (
-                  <span className="text-[0.55rem] font-bold" style={{ color: 'var(--color-gold-400)' }}>
+                  <span className="text-[0.55rem] font-bold" style={{ color: 'var(--color-warn)' }}>
                     {player.pointsTaken} pts
                   </span>
                 )}
@@ -735,9 +860,12 @@ export default function Room() {
         );
       })}
 
-        {/* Bidding / trump / partner panels float over the seats and trick */}
+        {/* Bidding / trump / partner panels. Anchored below the seat arc rather
+            than centred on the whole board — dead centre put them straight
+            through the top-centre seat. No trick is in play during these
+            phases, so the lower band is free. */}
         {(phase === 'BIDDING' || phase === 'TRUMP_SELECTION' || phase === 'PARTNER_SELECTION') && (
-          <div className="absolute inset-0 z-20 flex items-center justify-center p-3 overflow-y-auto pointer-events-none">
+          <div className="absolute inset-x-0 bottom-0 top-[34%] z-20 flex items-center justify-center p-3 overflow-y-auto pointer-events-none">
             <div className="w-full max-w-xl pointer-events-auto my-auto">
               {renderBiddingPanel()}
               {renderTrumpPanel()}
@@ -758,13 +886,18 @@ export default function Room() {
 
     const handPoints = myHand.reduce((sum, c) => sum + getCardPoints(c), 0);
 
+    // Hand tray — a flat darker band across the foot of the board, not a
+    // wooden rail. Just enough separation to read as "your cards".
     return (
       <div className="relative z-10 shrink-0 px-4 pt-2 pb-3"
-           style={{ background: 'rgba(0,0,0,0.42)', borderTop: '1px solid rgba(255,255,255,0.12)' }}>
+           style={{
+             background: 'rgba(10,16,26,0.78)',
+             borderTop: '1px solid rgba(255,255,255,0.1)'
+           }}>
         <div className="max-w-6xl mx-auto">
           <div className="flex items-center justify-between gap-3 mb-2 text-[0.6rem] uppercase tracking-widest flex-wrap">
             <div className="flex items-center gap-2 flex-wrap">
-              <span className="font-bold" style={{ color: 'var(--color-gold-300)' }}>
+              <span className="font-bold" style={{ color: 'var(--color-warn)' }}>
                 {myPlayer?.name || 'You'}
               </span>
               {myRole && (
@@ -773,11 +906,11 @@ export default function Room() {
                   {ROLE_STYLES[myRole].label}
                 </span>
               )}
-              <span style={{ color: (myPlayer?.score ?? 0) >= 0 ? 'var(--color-emerald-500)' : 'var(--color-ruby-400)' }}>
+              <span style={{ color: (myPlayer?.score ?? 0) >= 0 ? 'var(--color-good)' : 'var(--color-bad)' }}>
                 {(myPlayer?.score ?? 0) >= 0 ? '+' : ''}{myPlayer?.score ?? 0}
               </span>
               {phase === 'TRICKS' && (myPlayer?.pointsTaken ?? 0) > 0 && (
-                <span className="font-bold" style={{ color: 'var(--color-gold-400)' }}>
+                <span className="font-bold" style={{ color: 'var(--color-warn)' }}>
                   {myPlayer.pointsTaken} pts taken
                 </span>
               )}
@@ -833,35 +966,77 @@ export default function Room() {
   // ─── Lobby ───
   const renderLobby = () => {
     if (phase !== 'LOBBY') return null;
+
+    const seatsShort = Math.max(4 - players.length, 0);
+    const isFull = players.length >= 6;
+
+    // Both emits go down the same socket in order and the server handles each
+    // one synchronously, so the seats are filled by the time the start is read.
+    const playSolo = () => {
+      addBots(seatsShort);
+      startMatch();
+    };
+
     return (
-      <div className="flex-1 flex items-center justify-center p-4">
-        <div className="glass-panel p-8 text-center max-w-sm animate-float-in">
+      <div className="flex-1 flex items-center justify-center p-4 overflow-y-auto">
+        <div className="panel p-8 text-center max-w-sm w-full animate-float-in">
           <div className="text-4xl mb-4 opacity-20">♠ ♥ ♦ ♣</div>
-          <h3 className="text-xl font-bold text-white mb-2" style={{ fontFamily: 'var(--font-heading)' }}>
+          <h3 className="text-xl font-bold text-white mb-2 tracking-wide" style={{ fontFamily: 'var(--font-heading)' }}>
             Waiting for Players
           </h3>
           <p className="text-sm opacity-40 mb-4">
-            Share the room code <span className="font-bold tracking-wider" style={{ color: 'var(--color-gold-400)' }}>{id}</span> with your friends.
+            Share the room code <span className="font-bold tracking-wider" style={{ color: 'var(--color-warn)' }}>{id}</span> with your friends,
+            or fill the empty seats with bots.
           </p>
 
-          <div className="space-y-1 mb-5">
+          <div className="space-y-1 mb-4">
             {players.map(p => (
-              <div key={p.id} className="flex items-center justify-center gap-2 text-sm">
-                <span className="w-1.5 h-1.5 rounded-full" style={{ background: 'var(--color-emerald-500)' }} />
-                <span className={p.id === playerId ? 'font-bold' : 'opacity-70'} style={{ color: p.id === playerId ? 'var(--color-gold-300)' : undefined }}>
+              <div key={p.id} className="flex items-center gap-2 text-sm px-2 py-1 rounded-lg"
+                   style={{ background: 'rgba(255,255,255,0.03)' }}>
+                <span className="w-1.5 h-1.5 rounded-full shrink-0"
+                      style={{ background: p.isBot ? 'var(--color-ink-dim)' : 'var(--color-good)' }} />
+                <span className={`truncate ${p.id === playerId ? 'font-bold' : 'opacity-70'}`}
+                      style={{ color: p.id === playerId ? 'var(--color-warn)' : undefined }}>
                   {p.name}{p.id === playerId && ' (you)'}
                 </span>
+                {p.isBot && (
+                  <span className="text-[0.55rem] uppercase tracking-wider px-1.5 py-0.5 rounded shrink-0"
+                        style={{ background: 'rgba(255,255,255,0.07)', color: 'var(--color-ink-dim)' }}>
+                    bot
+                  </span>
+                )}
+                {/* Pushes the remove button to the right edge; on human rows it
+                    just holds the name against the left. */}
+                <span className="flex-1" />
+                {p.isBot && (
+                  <button onClick={() => removeBot(p.id)}
+                          title={`Remove ${p.name}`}
+                          className="text-xs opacity-40 hover:opacity-100 transition-opacity px-1 shrink-0">
+                    ✕
+                  </button>
+                )}
               </div>
             ))}
           </div>
 
-          <p className="text-xs opacity-50 mb-4">{players.length}/6 players · need at least 4</p>
+          <p className="text-xs opacity-50 mb-4">{players.length}/6 seats · need at least 4</p>
 
-          {players.length >= 4 ? (
-            <button onClick={startMatch} className="btn-primary w-full py-3">Start Match</button>
-          ) : (
-            <p className="text-xs opacity-30">Waiting for {4 - players.length} more…</p>
-          )}
+          <div className="space-y-2">
+            {seatsShort > 0 && (
+              <button onClick={playSolo} className="btn-primary w-full py-3">
+                Play Solo — add {seatsShort} bot{seatsShort > 1 ? 's' : ''} and start
+              </button>
+            )}
+
+            {players.length >= 4 && (
+              <button onClick={startMatch} className="btn-primary w-full py-3">Start Match</button>
+            )}
+
+            <button onClick={() => addBots(1)} disabled={isFull}
+                    className="btn-ghost w-full py-2 text-sm disabled:opacity-25 disabled:cursor-not-allowed">
+              {isFull ? 'Table is full' : '+ Add a bot'}
+            </button>
+          </div>
         </div>
       </div>
     );
@@ -869,10 +1044,19 @@ export default function Room() {
 
   // ─── Layout ───
   return (
-    <div className="w-full h-full flex flex-col relative overflow-hidden" style={{ background: 'var(--color-felt-900)' }}>
-      {renderHeader()}
-      {renderTurnBanner()}
-      {renderPrivateNotice()}
+    <div className="w-full h-full flex flex-col relative overflow-hidden" style={{ background: 'var(--color-bg)' }}>
+      {/* Below lg there is no rail, so the HUD falls back to this compact strip.
+          On lg+ it is hidden and every readout lives in the rail instead, which
+          buys the felt back the ~185px this used to occupy. */}
+      <div className="lg:hidden shrink-0">
+        {renderHeader()}
+        {/* One shared row — empty:hidden keeps it from costing padding when
+            neither the turn banner nor the role notice has anything to say. */}
+        <div className="flex flex-wrap items-center justify-center gap-2 px-4 pb-2 empty:hidden">
+          {renderTurnBanner()}
+          {renderPrivateNotice()}
+        </div>
+      </div>
 
       {phase === 'LOBBY' ? renderLobby() : (
         <div className="flex-1 flex flex-col lg:flex-row min-h-0 overflow-hidden">

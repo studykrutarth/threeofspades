@@ -91,6 +91,14 @@ export const GameProvider = ({ children }) => {
     socket.emit('start_match');
   };
 
+  const addBots = (count = 1) => {
+    socket.emit('add_bot', { count });
+  };
+
+  const removeBot = (botId) => {
+    socket.emit('remove_bot', { botId });
+  };
+
   const placeBid = (amount) => {
     socket.emit('place_bid', { amount });
   };
@@ -116,6 +124,8 @@ export const GameProvider = ({ children }) => {
       error,
       joinRoom,
       startMatch,
+      addBots,
+      removeBot,
       placeBid,
       selectTrump,
       selectPartners,

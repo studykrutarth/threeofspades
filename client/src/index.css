@@ -1,39 +1,53 @@
 @import "tailwindcss";
 
+/* ─── Design system ───
+   Flat and modern, in the manner of Colonist.io: the board is the hero, the
+   surfaces around it are quiet, and player identity is carried by colour
+   rather than by decoration. Deliberately NOT skeuomorphic — no felt texture,
+   wood rail, brass trim, bevels or metallic gradients. Those read as a casino
+   product, which is what we are steering away from. */
+
 @theme {
-  --font-heading: 'Outfit', sans-serif;
-  --font-body: 'Inter', sans-serif;
+  --font-body: 'Nunito', system-ui, sans-serif;
+  /* One family, several weights. A second display face is exactly the kind of
+     flourish that made this look like a betting site. */
+  --font-heading: 'Nunito', system-ui, sans-serif;
 
-  --color-felt-900: #0a1628;
-  --color-felt-800: #0f1f3a;
-  --color-felt-700: #162a4a;
-  --color-felt-600: #1e3a5f;
+  /* Neutrals — desaturated navy, so the green board pops against it */
+  --color-bg: #151b28;
+  --color-surface: #212a3d;
+  --color-surface-2: #2b3650;
+  --color-hairline: rgba(255, 255, 255, 0.08);
+  --color-ink: #e8edf5;
+  --color-ink-dim: #94a3b8;
 
-  --color-gold-500: #d4a843;
-  --color-gold-400: #e8c468;
-  --color-gold-300: #f0d68a;
+  /* Functional accents — flat fills, never gradients */
+  --color-accent: #4a90e2;
+  --color-accent-dark: #3a76bd;
+  --color-good: #46b26b;
+  --color-bad: #e05c4b;
+  --color-warn: #e8a33d;
 
-  --color-ruby-600: #b91c3a;
-  --color-ruby-500: #dc2650;
-  --color-ruby-400: #ef476f;
+  /* Seat colours. Identity is colour first, name second. */
+  --color-seat-1: #e05c4b;
+  --color-seat-2: #4a90e2;
+  --color-seat-3: #46b26b;
+  --color-seat-4: #e8a33d;
+  --color-seat-5: #a874e8;
+  --color-seat-6: #35c4c4;
 
-  --color-emerald-600: #059669;
-  --color-emerald-500: #10b981;
+  /* Board */
+  --color-board: #2f7d5b;
+  --color-board-dark: #24614799;
+  --color-board-rim: #1d4d38;
 
-  --color-card-red: #dc2626;
-  --color-card-black: #1e293b;
-
-  --color-table-green: #1a5c3a;
-  --color-table-border: #2d7a50;
+  --color-card-red: #d94a3d;
+  --color-card-black: #2b3650;
 }
 
-/* ─── Base Resets ─── */
+/* ─── Base ─── */
 * {
   box-sizing: border-box;
-}
-
-html {
-  scroll-behavior: smooth;
 }
 
 body {
@@ -41,227 +55,170 @@ body {
   font-family: var(--font-body);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  background: var(--color-felt-900);
-  color: #e2e8f0;
+  background: var(--color-bg);
+  color: var(--color-ink);
   overflow-x: hidden;
 }
 
 /* ─── Scrollbar ─── */
 ::-webkit-scrollbar {
-  width: 6px;
+  width: 8px;
 }
 ::-webkit-scrollbar-track {
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: rgba(255,255,255,0.15);
-  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.12);
+  border-radius: 4px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(255,255,255,0.25);
+  background: rgba(255, 255, 255, 0.2);
 }
 
-/* ─── Keyframe Animations ─── */
+/* ─── Animations ───
+   Short and functional. Nothing shimmers or glows. */
 @keyframes float-in {
-  from {
-    opacity: 0;
-    transform: translateY(24px) scale(0.96);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0) scale(1);
-  }
-}
-
-@keyframes slide-up {
-  from {
-    opacity: 0;
-    transform: translateY(40px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-@keyframes shimmer {
-  0% { background-position: -200% center; }
-  100% { background-position: 200% center; }
-}
-
-@keyframes pulse-glow {
-  0%, 100% { box-shadow: 0 0 20px rgba(212,168,67,0.15); }
-  50% { box-shadow: 0 0 40px rgba(212,168,67,0.35); }
+  from { opacity: 0; transform: translateY(16px) scale(0.98); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
 }
 
 @keyframes card-deal {
-  from {
-    opacity: 0;
-    transform: translateY(-60px) rotate(-8deg) scale(0.7);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0) rotate(0deg) scale(1);
-  }
+  from { opacity: 0; transform: translateY(-40px) scale(0.85); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
 }
 
 @keyframes toast-in {
-  from {
-    opacity: 0;
-    transform: translateX(-50%) translateY(-20px);
-  }
-  to {
-    opacity: 1;
-    transform: translateX(-50%) translateY(0);
-  }
+  from { opacity: 0; transform: translateX(-50%) translateY(-16px); }
+  to   { opacity: 1; transform: translateX(-50%) translateY(0); }
 }
 
 @keyframes spin-slow {
   from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
+  to   { transform: rotate(360deg); }
 }
 
-/* ─── Utility Classes ─── */
-.animate-float-in {
-  animation: float-in 0.5s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+/* A flat breathing highlight for "it's your turn" — an opacity pulse rather
+   than the metallic glow this replaced. */
+@keyframes pulse-soft {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0.72; }
 }
 
-.animate-slide-up {
-  animation: slide-up 0.6s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+.animate-float-in  { animation: float-in 0.35s cubic-bezier(0.22, 1, 0.36, 1) forwards; }
+.animate-card-deal { animation: card-deal 0.3s cubic-bezier(0.22, 1, 0.36, 1) forwards; }
+.animate-toast-in  { animation: toast-in 0.3s cubic-bezier(0.22, 1, 0.36, 1) forwards; }
+.animate-spin-slow { animation: spin-slow 2.5s linear infinite; }
+.animate-pulse-soft { animation: pulse-soft 1.8s ease-in-out infinite; }
+
+/* ─── Surfaces ───
+   Flat fill, hairline border, one soft shadow. No inner sheen, no bevel. */
+.panel {
+  background: var(--color-surface);
+  border: 1px solid var(--color-hairline);
+  border-radius: 0.875rem;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.25);
 }
 
-.animate-card-deal {
-  animation: card-deal 0.4s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+/* A recessed well *inside* a panel — for stat tiles and grouped readouts. */
+.panel-inset {
+  background: rgba(0, 0, 0, 0.22);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 0.625rem;
 }
 
-.animate-toast-in {
-  animation: toast-in 0.4s cubic-bezier(0.22, 1, 0.36, 1) forwards;
-}
-
-.animate-pulse-glow {
-  animation: pulse-glow 2s ease-in-out infinite;
-}
-
-.animate-shimmer {
-  background: linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.08) 50%, transparent 100%);
-  background-size: 200% 100%;
-  animation: shimmer 2.5s ease-in-out infinite;
-}
-
-.animate-spin-slow {
-  animation: spin-slow 3s linear infinite;
-}
-
-/* ─── Glass Panels ─── */
-.glass-panel {
-  background: rgba(15, 31, 58, 0.75);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  border: 1px solid rgba(255,255,255,0.08);
-  border-radius: 1rem;
-}
-
-.glass-panel-light {
-  background: rgba(255,255,255,0.04);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border: 1px solid rgba(255,255,255,0.06);
-  border-radius: 0.75rem;
-}
-
-/* ─── Card Table Felt ─── */
+/* ─── Board ───
+   Flat green, dark rim, generous radius. The play surface is the hero, so it
+   carries no texture that would compete with the cards on top of it. */
 .table-felt {
   background:
-    radial-gradient(ellipse at center, rgba(26,92,58,0.5) 0%, rgba(10,22,40,0.9) 70%),
-    repeating-linear-gradient(
-      0deg,
-      transparent,
-      transparent 2px,
-      rgba(255,255,255,0.01) 2px,
-      rgba(255,255,255,0.01) 4px
-    );
-  border: 3px solid var(--color-table-border);
+    radial-gradient(ellipse 90% 70% at 50% 38%, #358c66 0%, var(--color-board) 55%, #256349 100%);
+  border: 4px solid var(--color-board-rim);
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.3);
 }
 
-/* ─── Button Variants ─── */
+/* ─── Labels ───
+   Small, muted, uppercase. Pairs with a big bold number underneath — the
+   dense icon/number style the reference leans on. */
+.label {
+  color: var(--color-ink-dim);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+}
+
+/* ─── Chip ───
+   Compact readout pill. Accent edge is set per-instance via --chip-accent. */
+.chip {
+  background: rgba(0, 0, 0, 0.22);
+  border: 1px solid var(--color-hairline);
+  border-left: 3px solid var(--chip-accent, var(--color-accent));
+  border-radius: 0.5rem;
+}
+
+/* ─── Buttons ───
+   Flat fill, modest radius, a small lift on hover and a press on active.
+   No riser shadow, no bevel, no gradient. */
+.btn-primary,
+.btn-accent,
+.btn-ghost {
+  font-family: var(--font-body);
+  font-weight: 800;
+  padding: 0.7rem 1.4rem;
+  border-radius: 0.625rem;
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: background-color 0.15s ease, transform 0.1s ease, color 0.15s ease;
+}
+
 .btn-primary {
-  background: linear-gradient(135deg, var(--color-ruby-500) 0%, var(--color-ruby-600) 100%);
-  color: white;
-  font-weight: 700;
-  padding: 0.75rem 1.5rem;
-  border-radius: 0.75rem;
-  border: none;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  box-shadow: 0 4px 14px rgba(185, 28, 58, 0.35);
+  background: var(--color-accent);
+  color: #fff;
 }
-.btn-primary:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 6px 20px rgba(185, 28, 58, 0.5);
-}
-.btn-primary:active {
-  transform: scale(0.97);
-}
+.btn-primary:hover { background: #5b9cec; }
+.btn-primary:active { transform: scale(0.98); }
 
-.btn-gold {
-  background: linear-gradient(135deg, var(--color-gold-500) 0%, #c4952e 100%);
-  color: var(--color-felt-900);
-  font-weight: 700;
-  padding: 0.75rem 1.5rem;
-  border-radius: 0.75rem;
-  border: none;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  box-shadow: 0 4px 14px rgba(212, 168, 67, 0.3);
+.btn-accent {
+  background: var(--color-good);
+  color: #fff;
 }
-.btn-gold:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 6px 20px rgba(212, 168, 67, 0.5);
-}
-.btn-gold:active {
-  transform: scale(0.97);
-}
+.btn-accent:hover { background: #55c47b; }
+.btn-accent:active { transform: scale(0.98); }
 
 .btn-ghost {
-  background: rgba(255,255,255,0.06);
-  color: #94a3b8;
-  font-weight: 600;
-  padding: 0.75rem 1.5rem;
-  border-radius: 0.75rem;
-  border: 1px solid rgba(255,255,255,0.1);
-  cursor: pointer;
-  transition: all 0.2s ease;
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--color-ink-dim);
+  border-color: var(--color-hairline);
 }
 .btn-ghost:hover {
-  background: rgba(255,255,255,0.1);
-  color: white;
-  border-color: rgba(255,255,255,0.2);
+  background: rgba(255, 255, 255, 0.11);
+  color: var(--color-ink);
 }
+.btn-ghost:active { transform: scale(0.98); }
 
-/* ─── Overlapping Hand ─── */
-/* Cards are stacked with negative margins and an inline z-index, so hovering
-   has to override that inline value to pull a card to the front. */
+/* ─── Overlapping hand ─── */
+/* Cards stack with negative margins and an inline z-index, so hover has to
+   override that inline value to pull a card to the front. */
 .hand-card:hover {
   z-index: 60 !important;
 }
 
-/* ─── Input Styling ─── */
+/* ─── Inputs ───
+   Flat well, accent ring on focus. */
 .input-field {
   width: 100%;
-  padding: 0.875rem 1rem;
-  background: rgba(10,22,40,0.6);
-  border: 1px solid rgba(255,255,255,0.1);
-  border-radius: 0.75rem;
-  color: white;
+  padding: 0.8rem 1rem;
+  background: rgba(0, 0, 0, 0.25);
+  border: 1px solid var(--color-hairline);
+  border-radius: 0.625rem;
+  color: var(--color-ink);
   font-size: 1rem;
   font-family: var(--font-body);
   outline: none;
-  transition: all 0.2s ease;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
 .input-field::placeholder {
-  color: rgba(148,163,184,0.5);
+  color: rgba(148, 163, 184, 0.55);
 }
 .input-field:focus {
-  border-color: var(--color-gold-500);
-  box-shadow: 0 0 0 3px rgba(212,168,67,0.15);
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 3px rgba(74, 144, 226, 0.2);
 }
